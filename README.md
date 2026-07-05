@@ -4,6 +4,9 @@ An AI-powered platform for evaluating the quality of AI-generated responses usin
 
 Veridict analyzes AI responses across multiple quality dimensions, provides explainable reasoning, and generates a comprehensive evaluation verdict.
 
+<img width="575" height="775" alt="Screenshot 2026-07-05 214625" src="https://github.com/user-attachments/assets/44edbbd3-207a-4989-af83-080832a02de7" />
+
+
 ---
 
 ## Project Overview

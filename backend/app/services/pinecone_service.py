@@ -59,13 +59,36 @@ class PineconeService:
         result = self.index.fetch(ids=[vector_id])
         return vector_id in result.vectors
 
+    def query_vectors(
+        self,
+        embedding: list[float],
+        top_k: int = settings.TOP_K
+    ):
+        """
+        Search Pinecone for the most similar vectors.
+
+        Args:
+            embedding: Query embedding.
+            top_k: Number of similar chunks to retrieve.
+
+        Returns:
+            Pinecone query response containing the most
+            relevant vectors and their metadata.
+        """
+
+        return self.index.query(
+            vector=embedding,
+            top_k=top_k,
+            include_metadata=True
+        )
+
     def get_index_stats(self) -> dict:
         """
         Return Pinecone index statistics.
 
         Returns:
-            Dictionary containing index dimension, vector count,
-            namespaces, and metric information.
+            Dictionary containing index dimension,
+            vector count, namespaces, and metric information.
         """
 
         return self.index.describe_index_stats()

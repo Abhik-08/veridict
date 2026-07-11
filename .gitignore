@@ -48,6 +48,7 @@ yarn-error.log*
 
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # ==========================
 # Hugging Face Cache
@@ -71,3 +72,6 @@ Thumbs.db
 
 .idea/
 *.swp
+
+app/knowledge/processed/embedded_chunks.json
+app/knowledge/processed/ingestion_progress.json

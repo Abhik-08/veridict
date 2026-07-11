@@ -3,7 +3,8 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    UploadFile
+    UploadFile,
+    BackgroundTasks
 )
 
 from app.schemas.evaluation import (
@@ -11,6 +12,7 @@ from app.schemas.evaluation import (
     EvaluationResponse
 )
 from app.services.evaluation_service import EvaluationService
+from app.services.pdf_ingestion_service import PDFIngestionService
 
 router = APIRouter(
     prefix="/evaluate",
@@ -18,6 +20,7 @@ router = APIRouter(
 )
 
 evaluation_service = EvaluationService()
+pdf_ingestion_service = PDFIngestionService()
 
 
 @router.post(
@@ -25,6 +28,7 @@ evaluation_service = EvaluationService()
     response_model=EvaluationResponse
 )
 async def evaluate_response(
+    background_tasks: BackgroundTasks,
     question: str = Form(...),
     ai_response: str = Form(...),
     reference_answer: str | None = Form(None),
@@ -34,19 +38,14 @@ async def evaluate_response(
     Prepare the evaluation payload.
 
     Accepts:
-
     - User question
     - AI response
     - Optional reference answer
     - Optional PDF document
 
-    The uploaded PDF (if provided) will be
-    processed and used as an additional
-    knowledge source during retrieval.
+    The uploaded PDF (if provided) will be ingested asynchronously in the background.
     """
-
     try:
-
         request = EvaluationRequest(
             question=question,
             ai_response=ai_response,
@@ -55,7 +54,8 @@ async def evaluate_response(
 
         return await evaluation_service.evaluate(
             request=request,
-            pdf_file=pdf_file
+            pdf_file=pdf_file,
+            background_tasks=background_tasks
         )
 
     except Exception as e:
@@ -63,3 +63,20 @@ async def evaluate_response(
             status_code=500,
             detail=str(e)
         )
+
+
+@router.get(
+    "/status/{namespace}",
+    response_model=dict
+)
+def get_ingestion_status(namespace: str):
+    """
+    Get the processing status and performance metrics for a PDF ingestion task.
+    """
+    status_data = pdf_ingestion_service.get_job_status(namespace)
+    if not status_data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Ingestion task with namespace '{namespace}' not found."
+        )
+    return status_data

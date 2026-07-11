@@ -30,10 +30,8 @@ class EvaluationResponse(BaseModel):
     """
     Response model for AI response evaluation.
 
-    This response does not perform evaluation yet.
-    It simply returns the submitted inputs along with
-    the retrieved knowledge chunks that will be used
-    by the Judge Agents in future phases.
+    This response contains the submitted inputs, retrieved knowledge chunks,
+    and optional PDF background task tracking parameters.
     """
 
     question: str = Field(
@@ -54,4 +52,14 @@ class EvaluationResponse(BaseModel):
     retrieved_chunks: list[RetrievedChunk] = Field(
         default_factory=list,
         description="Relevant knowledge chunks retrieved from the knowledge base."
+    )
+
+    pdf_namespace: str | None = Field(
+        default=None,
+        description="Pinecone namespace containing the ingested PDF context."
+    )
+
+    pdf_status: str | None = Field(
+        default=None,
+        description="Ingestion status of the uploaded PDF: Pending, Processing, Completed, Failed."
     )

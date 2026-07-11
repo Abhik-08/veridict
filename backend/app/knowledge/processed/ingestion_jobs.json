@@ -1,0 +1,71 @@
+{
+    "pdf_8109799c": {
+        "namespace": "pdf_8109799c",
+        "status": "Expired",
+        "updated_at": "2026-07-11T19:45:14.123196+00:00",
+        "filename": "test_doc.pdf",
+        "created_at": "2026-07-11T19:45:09.946135+00:00",
+        "pages": 1,
+        "characters": 14,
+        "paragraphs": 1,
+        "chunks_uploaded": 1,
+        "embedding_batches": 1,
+        "pinecone_batches": 1,
+        "processing_time_seconds": 2.01,
+        "metrics": {
+            "extraction_time": 0.0,
+            "chunking_time": 0.0,
+            "embedding_time": 0.58,
+            "upload_time": 1.43
+        },
+        "deleted_at": "2026-07-11T19:45:16.441843+00:00"
+    },
+    "pdf_97954174": {
+        "namespace": "pdf_97954174",
+        "status": "Completed",
+        "updated_at": "2026-07-11T19:50:59.272831+00:00",
+        "filename": "CN_Lab All Assignments.pdf",
+        "created_at": "2026-07-11T19:50:45.124330+00:00",
+        "pages": 28,
+        "characters": 21620,
+        "paragraphs": 28,
+        "chunks_uploaded": 68,
+        "embedding_batches": 4,
+        "pinecone_batches": 1,
+        "processing_time_seconds": 12.04,
+        "metrics": {
+            "extraction_time": 0.73,
+            "chunking_time": 0.0,
+            "embedding_time": 7.17,
+            "upload_time": 4.15
+        }
+    },
+    "pdf_a291c9ff": {
+        "namespace": "pdf_a291c9ff",
+        "status": "Pending",
+        "updated_at": "2026-07-11T19:54:17.791696+00:00",
+        "filename": "Veridict_Master_Project_Context.docx",
+        "created_at": "2026-07-11T19:54:17.791696+00:00"
+    },
+    "pdf_40a09ae3": {
+        "namespace": "pdf_40a09ae3",
+        "status": "Expired",
+        "updated_at": "2026-07-11T20:10:51.858886+00:00",
+        "filename": "test_doc.pdf",
+        "created_at": "2026-07-11T20:10:47.241240+00:00",
+        "pages": 1,
+        "characters": 14,
+        "paragraphs": 1,
+        "chunks_uploaded": 1,
+        "embedding_batches": 1,
+        "pinecone_batches": 1,
+        "processing_time_seconds": 2.45,
+        "metrics": {
+            "extraction_time": 0.0,
+            "chunking_time": 0.0,
+            "embedding_time": 0.93,
+            "upload_time": 1.52
+        },
+        "deleted_at": "2026-07-11T20:10:54.158172+00:00"
+    }
+}

@@ -1,6 +1,9 @@
+import logging
 from pinecone import Pinecone
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class PineconeService:
@@ -25,7 +28,7 @@ class PineconeService:
         namespace: str | None = None
     ) -> None:
         """
-        Upload a single vector to Pinecone.
+        Upload a single vector.
 
         Args:
             vector_id: Unique identifier.
@@ -48,6 +51,35 @@ class PineconeService:
             kwargs["namespace"] = namespace
 
         self.index.upsert(**kwargs)
+
+    def upsert_vectors(
+        self,
+        vectors: list[dict],
+        namespace: str | None = None
+    ) -> None:
+        """
+        Upload multiple vectors in batches.
+
+        Args:
+            vectors: List of dictionaries matching the format:
+                     [{"id": str, "values": list[float], "metadata": dict}]
+            namespace: Optional namespace.
+        """
+        if not vectors:
+            return
+
+        batch_size = settings.UPSERT_BATCH_SIZE
+
+        # Upload in batches of size UPSERT_BATCH_SIZE
+        for i in range(0, len(vectors), batch_size):
+            batch = vectors[i:i + batch_size]
+            kwargs = {
+                "vectors": batch
+            }
+            if namespace:
+                kwargs["namespace"] = namespace
+
+            self.index.upsert(**kwargs)
 
     def vector_exists(
         self,
@@ -111,15 +143,18 @@ class PineconeService:
     ) -> None:
         """
         Delete all vectors inside a namespace.
+        Handles errors gracefully if the namespace does not exist.
 
         Args:
             namespace: Namespace name.
         """
-
-        self.index.delete(
-            delete_all=True,
-            namespace=namespace
-        )
+        try:
+            self.index.delete(
+                delete_all=True,
+                namespace=namespace
+            )
+        except Exception as e:
+            logger.warning(f"Failed to delete namespace '{namespace}' (may not exist): {e}")
 
     def get_index_stats(self) -> dict:
         """

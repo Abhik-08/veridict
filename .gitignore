@@ -1,16 +1,73 @@
+# ==========================
 # Python
-__pycache__/
-*.pyc
-.venv/
-.env
+# ==========================
 
-# Node
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+
+# Virtual Environments
+venv/
+.venv/
+
+# Environment Variables
+.env
+.env.*
+
+# Python Cache
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.coverage
+htmlcov/
+
+# ==========================
+# Node / React
+# ==========================
+
 node_modules/
 dist/
+build/
 
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================
 # VS Code
+# ==========================
+
 .vscode/
 
-# OS
+# ==========================
+# Operating System
+# ==========================
+
 .DS_Store
 Thumbs.db
+
+# ==========================
+# Hugging Face Cache
+# ==========================
+
+.cache/
+.huggingface/
+
+# ==========================
+# Generated Files
+# ==========================
+
+#backend/app/knowledge/processed/
+
+# Uncomment if you don't want datasets on GitHub
+# backend/app/knowledge/datasets/
+
+# ==========================
+# Misc
+# ==========================
+
+.idea/
+*.swp

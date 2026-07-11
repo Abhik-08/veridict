@@ -13,7 +13,7 @@ export function GlowButton({
   onClick,
   type = 'button',
   disabled = false,
-}: GlowButtonProps) {
+}: Readonly<GlowButtonProps>) {
   return (
     <button
       type={type}

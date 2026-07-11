@@ -20,7 +20,7 @@ export function GlassCard({
   className,
   static: isStatic = false,
   padding = 'md',
-}: GlassCardProps) {
+}: Readonly<GlassCardProps>) {
   return (
     <div
       className={cn(

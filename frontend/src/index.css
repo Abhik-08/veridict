@@ -8,6 +8,7 @@
    VERIDICT DESIGN SYSTEM — Tailwind CSS v4 Theme
    ============================================================ */
 
+/* stylelint-disable-next-line at-rule-no-unknown */
 @theme {
   /* ---- Colors ---- */
   --color-background: #030304;

@@ -27,12 +27,12 @@ const variantClass: Record<string, string> = {
   subtle: 'gradient-blob-subtle',
 }
 
-export function GradientBlobs({ blobs = defaultBlobs, className }: GradientBlobsProps) {
+export function GradientBlobs({ blobs = defaultBlobs, className }: Readonly<GradientBlobsProps>) {
   return (
     <div className={cn('pointer-events-none fixed inset-0 z-0 overflow-hidden', className)} aria-hidden="true">
-      {blobs.map((blob, i) => (
+      {blobs.map((blob) => (
         <div
-          key={i}
+          key={`${blob.variant}-${blob.top ?? ''}-${blob.left ?? ''}-${blob.right ?? ''}-${blob.bottom ?? ''}`}
           className={cn('gradient-blob', variantClass[blob.variant])}
           style={{
             width: blob.size,

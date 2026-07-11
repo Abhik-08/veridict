@@ -17,7 +17,7 @@ export function SectionContainer({
   children,
   className,
   width = 'default',
-}: SectionContainerProps) {
+}: Readonly<SectionContainerProps>) {
   return (
     <div className={cn(widthClass[width], className)}>
       {children}

@@ -20,7 +20,7 @@ export function GradientText({
   className,
   as: Tag = 'span',
   variant = 'default',
-}: GradientTextProps) {
+}: Readonly<GradientTextProps>) {
   return (
     <Tag className={cn(variantClass[variant], className)}>
       {children}

@@ -1,4 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import (
+    APIRouter,
+    File,
+    Form,
+    HTTPException,
+    UploadFile
+)
 
 from app.schemas.evaluation import (
     EvaluationRequest,
@@ -18,23 +24,39 @@ evaluation_service = EvaluationService()
     "",
     response_model=EvaluationResponse
 )
-def evaluate_response(
-    request: EvaluationRequest
+async def evaluate_response(
+    question: str = Form(...),
+    ai_response: str = Form(...),
+    reference_answer: str | None = Form(None),
+    pdf_file: UploadFile | None = File(None)
 ):
     """
     Prepare the evaluation payload.
 
-    This endpoint accepts a user question,
-    AI-generated response, and an optional
-    reference answer. It retrieves relevant
-    knowledge chunks from the knowledge base
-    and returns the combined payload.
+    Accepts:
 
-    AI evaluation will be added in future phases.
+    - User question
+    - AI response
+    - Optional reference answer
+    - Optional PDF document
+
+    The uploaded PDF (if provided) will be
+    processed and used as an additional
+    knowledge source during retrieval.
     """
 
     try:
-        return evaluation_service.evaluate(request)
+
+        request = EvaluationRequest(
+            question=question,
+            ai_response=ai_response,
+            reference_answer=reference_answer
+        )
+
+        return await evaluation_service.evaluate(
+            request=request,
+            pdf_file=pdf_file
+        )
 
     except Exception as e:
         raise HTTPException(

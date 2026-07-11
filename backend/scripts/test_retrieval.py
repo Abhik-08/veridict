@@ -5,6 +5,7 @@ def main() -> None:
     """
     Test script for verifying semantic retrieval capability.
     Loads query from user prompt, retrieves relevant chunks, and prints them.
+    Supports printing PDF page details, metadata, and previews.
     """
     retrieval_service = RetrievalService()
 
@@ -31,6 +32,12 @@ def main() -> None:
             print(f"Chunk Index : {result['chunk_index']}")
             print(f"Question    : {result['question']}")
             print(f"Answer      : {result['answer']}")
+            if result.get("filename"):
+                print(f"Filename    : {result['filename']}")
+                print(f"Page Number : {result['page_number']}")
+                print(f"Namespace   : {result['namespace']}")
+                print(f"Created At  : {result['created_at']}")
+            print(f"Preview     : {result['preview']}")
             print(f"Text        : {result['text']}")
 
     except Exception as e:

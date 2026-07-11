@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     PINECONE_INDEX_NAME: str = "veridict-knowledge-base"
 
     # ==============================
+    # PDF Ingestion Limits
+    # ==============================
+    MAX_PDF_PAGES: int = 500
+    MAX_PDF_SIZE_BYTES: int = 52428800  # 50 MB
+
+    # ==============================
     # Pydantic Settings Configuration
     # ==============================
     model_config = SettingsConfigDict(

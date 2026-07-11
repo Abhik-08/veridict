@@ -37,7 +37,14 @@ def retrieve_chunks(request: RetrievalRequest) -> RetrievalResponse:
                 chunk_index=result["chunk_index"],
                 question=result["question"],
                 answer=result["answer"],
-                text=result["text"]
+                text=result["text"],
+                # Optional PDF explainability metadata
+                filename=result.get("filename"),
+                page_number=result.get("page_number"),
+                chunk_character_count=result.get("chunk_character_count"),
+                created_at=result.get("created_at"),
+                namespace=result.get("namespace"),
+                preview=result.get("preview")
             )
             for result in results
         ]

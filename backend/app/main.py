@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.api.retrieval import router as retrieval_router
 from app.api.evaluation import router as evaluation_router
 from app.services.pdf_ingestion_service import PDFIngestionService
+from fastapi.middleware.cors import CORSMiddleware
 
 # --------------------------------------------------
 # Structured Logging Initialization (Phase I)
@@ -19,6 +20,16 @@ app = FastAPI(
     title="Veridict API",
     version="1.0.0",
     description="AI Response Quality Evaluator Backend"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

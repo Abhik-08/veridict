@@ -74,6 +74,11 @@ class EvaluationResponse(BaseModel):
         description="Accuracy judge evaluation result, or null if unavailable."
     )
 
+    hallucination_evaluation: "HallucinationEvaluationResult | None" = Field(
+        default=None,
+        description="Hallucination judge evaluation result, or null if unavailable."
+    )
+
 
 class RelevanceEvaluationResult(BaseModel):
     """Result of the Relevance Judge evaluation."""
@@ -111,6 +116,28 @@ class AccuracyEvaluationResult(BaseModel):
         ...,
         min_length=1,
         description="Reasoning explaining the accuracy score."
+    )
+
+    model_used: str = Field(
+        ...,
+        description="Gemini model used for evaluation."
+    )
+
+
+class HallucinationEvaluationResult(BaseModel):
+    """Result of the Hallucination Judge evaluation."""
+
+    hallucination_score: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="Hallucination score (1-5)."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="Reasoning explaining the hallucination score."
     )
 
     model_used: str = Field(

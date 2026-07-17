@@ -1,6 +1,6 @@
 import { GlassCard } from './GlassCard'
 import { SectionContainer } from './SectionContainer'
-import { FileText, Database, Cpu, Target, CheckCircle } from 'lucide-react'
+import { FileText, Database, Cpu, Target, CheckCircle, ShieldAlert } from 'lucide-react'
 
 export interface RetrievedChunk {
   id: string
@@ -31,6 +31,12 @@ export interface AccuracyEvaluation {
   model_used: string
 }
 
+export interface HallucinationEvaluation {
+  hallucination_score: number
+  reasoning: string
+  model_used: string
+}
+
 export interface EvaluationResultData {
   question: string
   ai_response: string
@@ -40,6 +46,7 @@ export interface EvaluationResultData {
   pdf_status?: string | null
   relevance_evaluation?: RelevanceEvaluation | null
   accuracy_evaluation?: AccuracyEvaluation | null
+  hallucination_evaluation?: HallucinationEvaluation | null
 }
 
 interface EvaluationResultProps {
@@ -60,6 +67,7 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
     pdf_status,
     relevance_evaluation,
     accuracy_evaluation,
+    hallucination_evaluation,
   } = result
 
   // Helper to safely slice text for preview fallback
@@ -119,6 +127,24 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
     }
   }
 
+  // Get hallucination score label and styling
+  const getHallucinationLabel = (score: number) => {
+    switch (score) {
+      case 5:
+        return { text: 'Fully Grounded', colorClass: 'bg-success/15 border-success/30 text-success' }
+      case 4:
+        return { text: 'Mostly Grounded', colorClass: 'bg-success/10 border-success/20 text-success/90' }
+      case 3:
+        return { text: 'Partially Grounded', colorClass: 'bg-warning/15 border-warning/30 text-warning' }
+      case 2:
+        return { text: 'Mostly Hallucinated', colorClass: 'bg-warning/10 border-warning/20 text-warning/90' }
+      case 1:
+        return { text: 'Highly Hallucinated', colorClass: 'bg-error/15 border-error/30 text-error' }
+      default:
+        return { text: 'Unknown', colorClass: 'bg-muted/15 border-muted/30 text-muted' }
+    }
+  }
+
   return (
     <SectionContainer width="narrow" className="mt-12 w-full animate-fade-in-up">
       <GlassCard padding="lg" static className="border border-border/80 shadow-glow-sm flex flex-col gap-8">
@@ -138,7 +164,7 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
             Evaluation Metrics
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Relevance Card */}
             <GlassCard padding="md" static className="border border-border/60 bg-background/25 flex flex-col justify-between gap-4">
               <div className="flex flex-col gap-3">
@@ -233,6 +259,55 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
                 </span>
                 <span className="text-[10px] font-mono text-muted bg-background/40 px-2 py-0.5 rounded border border-border/30 truncate max-w-[150px]">
                   {accuracy_evaluation ? accuracy_evaluation.model_used : "N/A"}
+                </span>
+              </div>
+            </GlassCard>
+
+            {/* Hallucination Card */}
+            <GlassCard padding="md" static className="border border-border/60 bg-background/25 flex flex-col justify-between gap-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                    <ShieldAlert size={16} className="text-primary" />
+                    Hallucination
+                  </h4>
+                  {hallucination_evaluation ? (
+                    <span className={`text-[10px] font-semibold border rounded-full px-2.5 py-0.5 uppercase ${getHallucinationLabel(hallucination_evaluation.hallucination_score).colorClass}`}>
+                      {getHallucinationLabel(hallucination_evaluation.hallucination_score).text}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold border border-muted/30 bg-muted/10 text-muted px-2.5 py-0.5 rounded-full uppercase">
+                      Unavailable
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-baseline gap-1 mt-1">
+                  {hallucination_evaluation ? (
+                    <>
+                      <span className="text-4xl font-display font-bold text-text-primary">
+                        {hallucination_evaluation.hallucination_score}
+                      </span>
+                      <span className="text-sm text-muted">/ 5</span>
+                    </>
+                  ) : (
+                    <span className="text-3xl font-display font-bold text-muted">—</span>
+                  )}
+                </div>
+
+                <p className="text-xs text-text-secondary leading-relaxed font-light mt-1">
+                  {hallucination_evaluation 
+                    ? hallucination_evaluation.reasoning 
+                    : "Hallucination evaluation temporarily unavailable."}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border/20 pt-3">
+                <span className="text-[9px] uppercase tracking-wider font-semibold text-muted">
+                  Judge Model
+                </span>
+                <span className="text-[10px] font-mono text-muted bg-background/40 px-2 py-0.5 rounded border border-border/30 truncate max-w-[150px]">
+                  {hallucination_evaluation ? hallucination_evaluation.model_used : "N/A"}
                 </span>
               </div>
             </GlassCard>

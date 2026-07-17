@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.schemas.judge import JudgeLLMResult, RelevanceJudgeOutput, AccuracyJudgeOutput
+from app.schemas.judge import JudgeLLMResult, RelevanceJudgeOutput, AccuracyJudgeOutput, HallucinationJudgeOutput
 from app.core.exceptions import JudgeLLMUnavailableError, JudgeLLMConfigurationError
 
 
@@ -29,6 +29,7 @@ def setup_mocks():
     orig_retrieval = evaluation_service.retrieval_service
     orig_relevance = evaluation_service.relevance_judge
     orig_accuracy = getattr(evaluation_service, "accuracy_judge", None)
+    orig_hallucination = getattr(evaluation_service, "hallucination_judge", None)
 
     mock_retrieval = MagicMock()
     mock_retrieval.retrieve.return_value = [
@@ -66,16 +67,29 @@ def setup_mocks():
     )
     mock_accuracy.evaluate_accuracy.return_value = mock_acc_result
 
+    mock_hallucination = MagicMock()
+    expected_hal_output = HallucinationJudgeOutput(
+        hallucination_score=5,
+        reasoning="Factually grounded."
+    )
+    mock_hal_result = JudgeLLMResult[HallucinationJudgeOutput](
+        result=expected_hal_output,
+        model_used="gemini-2.5-flash"
+    )
+    mock_hallucination.evaluate_hallucination.return_value = mock_hal_result
+
     evaluation_service.retrieval_service = mock_retrieval
     evaluation_service.relevance_judge = mock_relevance
     evaluation_service.accuracy_judge = mock_accuracy
+    evaluation_service.hallucination_judge = mock_hallucination
 
-    yield mock_retrieval, mock_relevance, mock_accuracy
+    yield mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination
 
     # Restore original attributes
     evaluation_service.retrieval_service = orig_retrieval
     evaluation_service.relevance_judge = orig_relevance
     evaluation_service.accuracy_judge = orig_accuracy
+    evaluation_service.hallucination_judge = orig_hallucination
 
 
 # ──────────────────────────────────────────────
@@ -83,8 +97,8 @@ def setup_mocks():
 # ──────────────────────────────────────────────
 class TestEvaluationIntegration:
     def test_evaluate_integration_success(self, client, setup_mocks):
-        """Verify successful relevance & accuracy evaluation and preserved M1 retrieval behavior."""
-        mock_retrieval, mock_relevance, mock_accuracy = setup_mocks
+        """Verify successful relevance, accuracy, & hallucination evaluation and preserved M1 retrieval behavior."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
 
         response = client.post(
             "/evaluate",
@@ -119,6 +133,12 @@ class TestEvaluationIntegration:
         assert data["accuracy_evaluation"]["reasoning"] == "Factually accurate."
         assert data["accuracy_evaluation"]["model_used"] == "gemini-2.5-flash"
 
+        # Hallucination evaluation result check
+        assert data["hallucination_evaluation"] is not None
+        assert data["hallucination_evaluation"]["hallucination_score"] == 5
+        assert data["hallucination_evaluation"]["reasoning"] == "Factually grounded."
+        assert data["hallucination_evaluation"]["model_used"] == "gemini-2.5-flash"
+
         # Verifies inputs passed correctly
         mock_relevance.evaluate_relevance.assert_called_once_with(
             question="What is photosynthesis?",
@@ -132,9 +152,16 @@ class TestEvaluationIntegration:
             retrieved_evidence="Photosynthesis turns light into energy."
         )
 
+        mock_hallucination.evaluate_hallucination.assert_called_once_with(
+            question="What is photosynthesis?",
+            ai_response="It is light-based energy production.",
+            reference_answer="Plants producing food using light.",
+            retrieved_evidence="Photosynthesis turns light into energy."
+        )
+
     def test_evaluate_integration_without_reference_and_evidence(self, client, setup_mocks):
         """Verify evaluation works when reference answer and retrieved evidence are omitted."""
-        mock_retrieval, mock_relevance, mock_accuracy = setup_mocks
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
         mock_retrieval.retrieve.return_value = []  # No evidence retrieved
 
         response = client.post(
@@ -151,6 +178,7 @@ class TestEvaluationIntegration:
         assert len(data["retrieved_chunks"]) == 0
         assert data["relevance_evaluation"]["relevance_score"] == 5
         assert data["accuracy_evaluation"]["accuracy_score"] == 5
+        assert data["hallucination_evaluation"]["hallucination_score"] == 5
 
         # Verify None values passed down
         mock_accuracy.evaluate_accuracy.assert_called_once_with(
@@ -160,10 +188,17 @@ class TestEvaluationIntegration:
             retrieved_evidence=None
         )
 
-    def test_evaluate_accuracy_judge_unavailability_graceful(self, client, setup_mocks):
-        """Verify Accuracy Judge unavailability returns accuracy_evaluation=null while relevance remains."""
-        mock_retrieval, mock_relevance, mock_accuracy = setup_mocks
-        mock_accuracy.evaluate_accuracy.side_effect = JudgeLLMUnavailableError("Temporary limit.")
+        mock_hallucination.evaluate_hallucination.assert_called_once_with(
+            question="What is the capital of France?",
+            ai_response="Paris.",
+            reference_answer=None,
+            retrieved_evidence=None
+        )
+
+    def test_evaluate_hallucination_judge_unavailability_graceful(self, client, setup_mocks):
+        """Verify Hallucination Judge unavailability returns hallucination_evaluation=null while others remain."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
+        mock_hallucination.evaluate_hallucination.side_effect = JudgeLLMUnavailableError("Temporary limit.")
 
         response = client.post(
             "/evaluate",
@@ -176,17 +211,17 @@ class TestEvaluationIntegration:
         assert response.status_code == 200
         data = response.json()
 
-        # Relevance still succeeded
+        # Other evaluations still succeeded
         assert data["relevance_evaluation"] is not None
-        assert data["relevance_evaluation"]["relevance_score"] == 5
+        assert data["accuracy_evaluation"] is not None
 
-        # Accuracy failed gracefully
-        assert data["accuracy_evaluation"] is None
+        # Hallucination failed gracefully
+        assert data["hallucination_evaluation"] is None
 
-    def test_evaluate_accuracy_judge_config_error_propagates(self, client, setup_mocks):
+    def test_evaluate_hallucination_judge_config_error_propagates(self, client, setup_mocks):
         """Verify Judge configuration errors propagate and cause 500 status code."""
-        mock_retrieval, mock_relevance, mock_accuracy = setup_mocks
-        mock_accuracy.evaluate_accuracy.side_effect = JudgeLLMConfigurationError("Bad credentials.")
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
+        mock_hallucination.evaluate_hallucination.side_effect = JudgeLLMConfigurationError("Bad credentials.")
 
         response = client.post(
             "/evaluate",
@@ -211,7 +246,7 @@ class TestPDFIngestionFlow:
         self, mock_cache, mock_ingest, client, setup_mocks
     ):
         """Verify PDF ingestion does not break and maps correctly to background task."""
-        mock_retrieval, mock_relevance, mock_accuracy = setup_mocks
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
         mock_cache.return_value = None  # Cache miss
 
         # Create dummy PDF bytes
@@ -234,6 +269,7 @@ class TestPDFIngestionFlow:
         assert data["pdf_status"] == "Processing"
         assert data["relevance_evaluation"] is not None
         assert data["accuracy_evaluation"] is not None
+        assert data["hallucination_evaluation"] is not None
 
         # Verify background ingestion dispatched
         mock_ingest.assert_called_once()

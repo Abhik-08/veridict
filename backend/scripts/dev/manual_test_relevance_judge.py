@@ -9,7 +9,7 @@ import sys
 import os
 
 # Add parent directory to sys.path so we can import app modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from app.agents.relevance_judge import RelevanceJudge
 from app.services.judge_llm_service import JudgeLLMService

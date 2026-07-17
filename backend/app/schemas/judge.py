@@ -70,3 +70,22 @@ class AccuracyJudgeOutput(BaseModel):
         description="A concise explanation detailing which factual claims were supported or contradicted by the evidence."
     )
 
+
+class HallucinationJudgeOutput(BaseModel):
+    """
+    Structured output schema for the Hallucination Judge Agent.
+    """
+
+    hallucination_score: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="The hallucination score of the response from 1 (ungrounded/fabricated) to 5 (completely grounded)."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="A concise explanation detailing which factual claims were supported or ungrounded by the evidence."
+    )
+

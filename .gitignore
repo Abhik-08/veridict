@@ -75,3 +75,8 @@ Desktop.ini
 
 app/knowledge/processed/embedded_chunks.json
 app/knowledge/processed/ingestion_progress.json
+# ==========================
+# Runtime RAG / PDF State
+# ==========================
+
+backend/app/knowledge/processed/

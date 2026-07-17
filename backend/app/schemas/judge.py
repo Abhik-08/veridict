@@ -51,3 +51,22 @@ class RelevanceJudgeOutput(BaseModel):
         description="A concise explanation justifying the assigned score."
     )
 
+
+class AccuracyJudgeOutput(BaseModel):
+    """
+    Structured output schema for the Accuracy Judge Agent.
+    """
+
+    accuracy_score: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="The accuracy score of the response from 1 (factually incorrect) to 5 (completely accurate)."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="A concise explanation detailing which factual claims were supported or contradicted by the evidence."
+    )
+

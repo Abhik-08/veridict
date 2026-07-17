@@ -1,6 +1,6 @@
 import { GlassCard } from './GlassCard'
 import { SectionContainer } from './SectionContainer'
-import { FileText, Database, Cpu, Target } from 'lucide-react'
+import { FileText, Database, Cpu, Target, CheckCircle } from 'lucide-react'
 
 export interface RetrievedChunk {
   id: string
@@ -25,6 +25,12 @@ export interface RelevanceEvaluation {
   model_used: string
 }
 
+export interface AccuracyEvaluation {
+  accuracy_score: number
+  reasoning: string
+  model_used: string
+}
+
 export interface EvaluationResultData {
   question: string
   ai_response: string
@@ -33,6 +39,7 @@ export interface EvaluationResultData {
   pdf_namespace?: string | null
   pdf_status?: string | null
   relevance_evaluation?: RelevanceEvaluation | null
+  accuracy_evaluation?: AccuracyEvaluation | null
 }
 
 interface EvaluationResultProps {
@@ -52,6 +59,7 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
     pdf_namespace,
     pdf_status,
     relevance_evaluation,
+    accuracy_evaluation,
   } = result
 
   // Helper to safely slice text for preview fallback
@@ -93,6 +101,24 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
     }
   }
 
+  // Get accuracy score label and styling
+  const getAccuracyLabel = (score: number) => {
+    switch (score) {
+      case 5:
+        return { text: 'Highly Accurate', colorClass: 'bg-success/15 border-success/30 text-success' }
+      case 4:
+        return { text: 'Mostly Accurate', colorClass: 'bg-success/10 border-success/20 text-success/90' }
+      case 3:
+        return { text: 'Partially Accurate', colorClass: 'bg-warning/15 border-warning/30 text-warning' }
+      case 2:
+        return { text: 'Mostly Inaccurate', colorClass: 'bg-warning/10 border-warning/20 text-warning/90' }
+      case 1:
+        return { text: 'Inaccurate', colorClass: 'bg-error/15 border-error/30 text-error' }
+      default:
+        return { text: 'Unknown', colorClass: 'bg-muted/15 border-muted/30 text-muted' }
+    }
+  }
+
   return (
     <SectionContainer width="narrow" className="mt-12 w-full animate-fade-in-up">
       <GlassCard padding="lg" static className="border border-border/80 shadow-glow-sm flex flex-col gap-8">
@@ -112,7 +138,8 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
             Evaluation Metrics
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Relevance Card */}
             <GlassCard padding="md" static className="border border-border/60 bg-background/25 flex flex-col justify-between gap-4">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -157,6 +184,55 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
                 </span>
                 <span className="text-[10px] font-mono text-muted bg-background/40 px-2 py-0.5 rounded border border-border/30 truncate max-w-[150px]">
                   {relevance_evaluation ? relevance_evaluation.model_used : "N/A"}
+                </span>
+              </div>
+            </GlassCard>
+
+            {/* Accuracy Card */}
+            <GlassCard padding="md" static className="border border-border/60 bg-background/25 flex flex-col justify-between gap-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                    <CheckCircle size={16} className="text-primary" />
+                    Accuracy
+                  </h4>
+                  {accuracy_evaluation ? (
+                    <span className={`text-[10px] font-semibold border rounded-full px-2.5 py-0.5 uppercase ${getAccuracyLabel(accuracy_evaluation.accuracy_score).colorClass}`}>
+                      {getAccuracyLabel(accuracy_evaluation.accuracy_score).text}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold border border-muted/30 bg-muted/10 text-muted px-2.5 py-0.5 rounded-full uppercase">
+                      Unavailable
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-baseline gap-1 mt-1">
+                  {accuracy_evaluation ? (
+                    <>
+                      <span className="text-4xl font-display font-bold text-text-primary">
+                        {accuracy_evaluation.accuracy_score}
+                      </span>
+                      <span className="text-sm text-muted">/ 5</span>
+                    </>
+                  ) : (
+                    <span className="text-3xl font-display font-bold text-muted">—</span>
+                  )}
+                </div>
+
+                <p className="text-xs text-text-secondary leading-relaxed font-light mt-1">
+                  {accuracy_evaluation 
+                    ? accuracy_evaluation.reasoning 
+                    : "Accuracy evaluation temporarily unavailable."}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border/20 pt-3">
+                <span className="text-[9px] uppercase tracking-wider font-semibold text-muted">
+                  Judge Model
+                </span>
+                <span className="text-[10px] font-mono text-muted bg-background/40 px-2 py-0.5 rounded border border-border/30 truncate max-w-[150px]">
+                  {accuracy_evaluation ? accuracy_evaluation.model_used : "N/A"}
                 </span>
               </div>
             </GlassCard>

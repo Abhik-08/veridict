@@ -69,6 +69,11 @@ class EvaluationResponse(BaseModel):
         description="Relevance judge evaluation result, or null if unavailable."
     )
 
+    accuracy_evaluation: "AccuracyEvaluationResult | None" = Field(
+        default=None,
+        description="Accuracy judge evaluation result, or null if unavailable."
+    )
+
 
 class RelevanceEvaluationResult(BaseModel):
     """Result of the Relevance Judge evaluation."""
@@ -84,6 +89,28 @@ class RelevanceEvaluationResult(BaseModel):
         ...,
         min_length=1,
         description="Reasoning explaining the relevance score."
+    )
+
+    model_used: str = Field(
+        ...,
+        description="Gemini model used for evaluation."
+    )
+
+
+class AccuracyEvaluationResult(BaseModel):
+    """Result of the Accuracy Judge evaluation."""
+
+    accuracy_score: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="Accuracy score (1-5)."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="Reasoning explaining the accuracy score."
     )
 
     model_used: str = Field(

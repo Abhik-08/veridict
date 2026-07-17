@@ -6,12 +6,14 @@ from fastapi import UploadFile, BackgroundTasks
 from app.schemas.evaluation import (
     EvaluationRequest,
     EvaluationResponse,
-    RelevanceEvaluationResult
+    RelevanceEvaluationResult,
+    AccuracyEvaluationResult
 )
 from app.schemas.retrieval import RetrievedChunk
 from app.services.pdf_ingestion_service import PDFIngestionService
 from app.services.retrieval_service import RetrievalService
 from app.agents.relevance_judge import RelevanceJudge
+from app.agents.accuracy_judge import AccuracyJudge
 from app.core.exceptions import JudgeLLMConfigurationError
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ class EvaluationService:
         self.retrieval_service = RetrievalService()
         self.pdf_ingestion_service = PDFIngestionService()
         self.relevance_judge = RelevanceJudge()
+        self.accuracy_judge = AccuracyJudge()
 
     async def evaluate(
         self,
@@ -136,6 +139,28 @@ class EvaluationService:
             logger.exception("Temporary Relevance Judge unavailability encountered.")
 
         # -------------------------------------------------
+        # Evaluate response accuracy
+        # -------------------------------------------------
+        accuracy_eval = None
+        try:
+            retrieved_evidence = "\n\n".join(c.text for c in retrieved_chunks) if retrieved_chunks else None
+            accuracy_res = self.accuracy_judge.evaluate_accuracy(
+                question=request.question,
+                ai_response=request.ai_response,
+                reference_answer=request.reference_answer,
+                retrieved_evidence=retrieved_evidence
+            )
+            accuracy_eval = AccuracyEvaluationResult(
+                accuracy_score=accuracy_res.result.accuracy_score,
+                reasoning=accuracy_res.result.reasoning,
+                model_used=accuracy_res.model_used
+            )
+        except (JudgeLLMConfigurationError, ValueError):
+            raise
+        except Exception:
+            logger.exception("Temporary Accuracy Judge unavailability encountered.")
+
+        # -------------------------------------------------
         # Build response
         # -------------------------------------------------
         return EvaluationResponse(
@@ -145,5 +170,6 @@ class EvaluationService:
             retrieved_chunks=retrieved_chunks,
             pdf_namespace=pdf_namespace,
             pdf_status=pdf_status,
-            relevance_evaluation=relevance_eval
+            relevance_evaluation=relevance_eval,
+            accuracy_evaluation=accuracy_eval
         )

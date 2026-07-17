@@ -1,14 +1,20 @@
 import uuid
+import logging
 from datetime import datetime, timezone
 from fastapi import UploadFile, BackgroundTasks
 
 from app.schemas.evaluation import (
     EvaluationRequest,
-    EvaluationResponse
+    EvaluationResponse,
+    RelevanceEvaluationResult
 )
 from app.schemas.retrieval import RetrievedChunk
 from app.services.pdf_ingestion_service import PDFIngestionService
 from app.services.retrieval_service import RetrievalService
+from app.agents.relevance_judge import RelevanceJudge
+from app.core.exceptions import JudgeLLMConfigurationError
+
+logger = logging.getLogger(__name__)
 
 UNKNOWN_PDF = "unknown.pdf"
 
@@ -24,6 +30,7 @@ class EvaluationService:
     def __init__(self):
         self.retrieval_service = RetrievalService()
         self.pdf_ingestion_service = PDFIngestionService()
+        self.relevance_judge = RelevanceJudge()
 
     async def evaluate(
         self,
@@ -110,6 +117,25 @@ class EvaluationService:
         ]
 
         # -------------------------------------------------
+        # Evaluate response relevance
+        # -------------------------------------------------
+        relevance_eval = None
+        try:
+            judge_res = self.relevance_judge.evaluate_relevance(
+                question=request.question,
+                ai_response=request.ai_response
+            )
+            relevance_eval = RelevanceEvaluationResult(
+                relevance_score=judge_res.result.relevance_score,
+                reasoning=judge_res.result.reasoning,
+                model_used=judge_res.model_used
+            )
+        except (JudgeLLMConfigurationError, ValueError):
+            raise
+        except Exception:
+            logger.exception("Temporary Relevance Judge unavailability encountered.")
+
+        # -------------------------------------------------
         # Build response
         # -------------------------------------------------
         return EvaluationResponse(
@@ -118,5 +144,6 @@ class EvaluationService:
             reference_answer=request.reference_answer,
             retrieved_chunks=retrieved_chunks,
             pdf_namespace=pdf_namespace,
-            pdf_status=pdf_status
+            pdf_status=pdf_status,
+            relevance_evaluation=relevance_eval
         )

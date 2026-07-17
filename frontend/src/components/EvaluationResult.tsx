@@ -1,6 +1,6 @@
 import { GlassCard } from './GlassCard'
 import { SectionContainer } from './SectionContainer'
-import { FileText, Database, Cpu } from 'lucide-react'
+import { FileText, Database, Cpu, Target } from 'lucide-react'
 
 export interface RetrievedChunk {
   id: string
@@ -19,6 +19,12 @@ export interface RetrievedChunk {
   preview?: string | null
 }
 
+export interface RelevanceEvaluation {
+  relevance_score: number
+  reasoning: string
+  model_used: string
+}
+
 export interface EvaluationResultData {
   question: string
   ai_response: string
@@ -26,6 +32,7 @@ export interface EvaluationResultData {
   retrieved_chunks: RetrievedChunk[]
   pdf_namespace?: string | null
   pdf_status?: string | null
+  relevance_evaluation?: RelevanceEvaluation | null
 }
 
 interface EvaluationResultProps {
@@ -44,6 +51,7 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
     retrieved_chunks,
     pdf_namespace,
     pdf_status,
+    relevance_evaluation,
   } = result
 
   // Helper to safely slice text for preview fallback
@@ -67,6 +75,24 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
     return 'bg-error/15 border-error/30 text-error'
   }
 
+  // Get relevance score label and styling
+  const getRelevanceLabel = (score: number) => {
+    switch (score) {
+      case 5:
+        return { text: 'Highly Relevant', colorClass: 'bg-success/15 border-success/30 text-success' }
+      case 4:
+        return { text: 'Mostly Relevant', colorClass: 'bg-success/10 border-success/20 text-success/90' }
+      case 3:
+        return { text: 'Partially Relevant', colorClass: 'bg-warning/15 border-warning/30 text-warning' }
+      case 2:
+        return { text: 'Mostly Irrelevant', colorClass: 'bg-warning/10 border-warning/20 text-warning/90' }
+      case 1:
+        return { text: 'Irrelevant', colorClass: 'bg-error/15 border-error/30 text-error' }
+      default:
+        return { text: 'Unknown', colorClass: 'bg-muted/15 border-muted/30 text-muted' }
+    }
+  }
+
   return (
     <SectionContainer width="narrow" className="mt-12 w-full animate-fade-in-up">
       <GlassCard padding="lg" static className="border border-border/80 shadow-glow-sm flex flex-col gap-8">
@@ -80,6 +106,61 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
           <p className="text-sm text-muted mt-1.5">
             Retrieved knowledge used during semantic retrieval.
           </p>
+        </div>
+        {/* SECTION: Evaluation Metrics */}
+        <div className="flex flex-col gap-4 border-t border-border/80 pt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+            Evaluation Metrics
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <GlassCard padding="md" static className="border border-border/60 bg-background/25 flex flex-col justify-between gap-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+                    <Target size={16} className="text-primary" />
+                    Relevance
+                  </h4>
+                  {relevance_evaluation ? (
+                    <span className={`text-[10px] font-semibold border rounded-full px-2.5 py-0.5 uppercase ${getRelevanceLabel(relevance_evaluation.relevance_score).colorClass}`}>
+                      {getRelevanceLabel(relevance_evaluation.relevance_score).text}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold border border-muted/30 bg-muted/10 text-muted px-2.5 py-0.5 rounded-full uppercase">
+                      Unavailable
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-baseline gap-1 mt-1">
+                  {relevance_evaluation ? (
+                    <>
+                      <span className="text-4xl font-display font-bold text-text-primary">
+                        {relevance_evaluation.relevance_score}
+                      </span>
+                      <span className="text-sm text-muted">/ 5</span>
+                    </>
+                  ) : (
+                    <span className="text-3xl font-display font-bold text-muted">—</span>
+                  )}
+                </div>
+
+                <p className="text-xs text-text-secondary leading-relaxed font-light mt-1">
+                  {relevance_evaluation 
+                    ? relevance_evaluation.reasoning 
+                    : "Relevance evaluation temporarily unavailable."}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border/20 pt-3">
+                <span className="text-[9px] uppercase tracking-wider font-semibold text-muted">
+                  Judge Model
+                </span>
+                <span className="text-[10px] font-mono text-muted bg-background/40 px-2 py-0.5 rounded border border-border/30 truncate max-w-[150px]">
+                  {relevance_evaluation ? relevance_evaluation.model_used : "N/A"}
+                </span>
+              </div>
+            </GlassCard>
+          </div>
         </div>
 
         {/* SECTION 1: Submission Summary */}

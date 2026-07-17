@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     # ==============================
+    # Judge LLM Configuration
+    # ==============================
+    JUDGE_PRIMARY_MODEL: str = "gemini-2.5-flash"
+    JUDGE_FALLBACK_MODELS: str = "gemini-3.1-flash-lite,gemini-3.5-flash"
+    JUDGE_MAX_RETRIES: int = 2
+    JUDGE_RETRY_BASE_DELAY: float = 1.0
+    JUDGE_REQUEST_TIMEOUT: int = 60
+    JUDGE_TEMPERATURE: float = 0.0
+
+    # ==============================
     # Vector Database
     # ==============================
     PINECONE_INDEX_NAME: str = "veridict-knowledge-base"

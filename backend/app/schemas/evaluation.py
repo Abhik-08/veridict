@@ -63,3 +63,30 @@ class EvaluationResponse(BaseModel):
         default=None,
         description="Ingestion status of the uploaded PDF: Pending, Processing, Completed, Failed."
     )
+
+    relevance_evaluation: "RelevanceEvaluationResult | None" = Field(
+        default=None,
+        description="Relevance judge evaluation result, or null if unavailable."
+    )
+
+
+class RelevanceEvaluationResult(BaseModel):
+    """Result of the Relevance Judge evaluation."""
+
+    relevance_score: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="Relevance score (1-5)."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="Reasoning explaining the relevance score."
+    )
+
+    model_used: str = Field(
+        ...,
+        description="Gemini model used for evaluation."
+    )

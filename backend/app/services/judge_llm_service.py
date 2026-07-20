@@ -167,8 +167,6 @@ class JudgeLLMService:
             self.model_chain,
         )
 
-        last_error: Exception | None = None
-
         for model_name in self.model_chain:
             try:
                 result = self._call_model_with_retries(
@@ -182,13 +180,12 @@ class JudgeLLMService:
                 # Non-retryable — do not try the next model
                 raise
 
-            except JudgeLLMUnavailableError as exc:
+            except JudgeLLMUnavailableError:
                 # This model exhausted its retries — try next
                 logger.warning(
                     "Model '%s' exhausted retries. Moving to next fallback.",
                     model_name,
                 )
-                last_error = exc
                 continue
 
         # All models exhausted
@@ -233,7 +230,7 @@ class JudgeLLMService:
             except APIError as exc:
                 if not _is_retryable(exc):
                     # Non-retryable API error — fail immediately
-                    logger.error(
+                    logger.exception(
                         "Non-retryable API error from model '%s': "
                         "code=%s status=%s message=%s",
                         model_name,
@@ -262,7 +259,7 @@ class JudgeLLMService:
 
             except (json.JSONDecodeError, KeyError, TypeError, IndexError) as exc:
                 # Malformed response — treat as validation error
-                logger.error(
+                logger.exception(
                     "Failed to parse response from model '%s': %s",
                     model_name,
                     exc,
@@ -274,7 +271,7 @@ class JudgeLLMService:
 
             except ValidationError as exc:
                 # Pydantic validation failure
-                logger.error(
+                logger.exception(
                     "Pydantic validation failed for model '%s' response: %s",
                     model_name,
                     exc,

@@ -6,9 +6,9 @@ Provides a generic typed result container that all future Judge Agents
 structured output along with model-used metadata.
 """
 
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -74,13 +74,28 @@ class AccuracyJudgeOutput(BaseModel):
 class HallucinationJudgeOutput(BaseModel):
     """
     Structured output schema for the Hallucination Judge Agent.
+
+    Supports two statuses:
+    - SUCCESS: grounding was evaluated; hallucination_score is 1–5.
+    - INSUFFICIENT_EVIDENCE: no usable evidence to evaluate grounding;
+      hallucination_score is null.
     """
 
-    hallucination_score: int = Field(
+    status: Literal["SUCCESS", "INSUFFICIENT_EVIDENCE"] = Field(
         ...,
-        ge=1,
-        le=5,
-        description="The hallucination score of the response from 1 (ungrounded/fabricated) to 5 (completely grounded)."
+        description=(
+            "Evaluation outcome status. "
+            "'SUCCESS' when grounding could be evaluated, "
+            "'INSUFFICIENT_EVIDENCE' when no usable evidence was available."
+        ),
+    )
+
+    hallucination_score: int | None = Field(
+        default=None,
+        description=(
+            "The hallucination score of the response from 1 (ungrounded/fabricated) "
+            "to 5 (completely grounded). Null when status is INSUFFICIENT_EVIDENCE."
+        ),
     )
 
     reasoning: str = Field(
@@ -88,4 +103,23 @@ class HallucinationJudgeOutput(BaseModel):
         min_length=1,
         description="A concise explanation detailing which factual claims were supported or ungrounded by the evidence."
     )
+
+    @model_validator(mode="after")
+    def _validate_score_status_consistency(self) -> "HallucinationJudgeOutput":
+        """Enforce that SUCCESS requires a score in [1,5] and INSUFFICIENT_EVIDENCE requires null."""
+        if self.status == "SUCCESS":
+            if self.hallucination_score is None:
+                raise ValueError(
+                    "hallucination_score must be provided (1–5) when status is SUCCESS."
+                )
+            if not (1 <= self.hallucination_score <= 5):
+                raise ValueError(
+                    f"hallucination_score must be between 1 and 5, got {self.hallucination_score}."
+                )
+        elif self.status == "INSUFFICIENT_EVIDENCE":
+            if self.hallucination_score is not None:
+                raise ValueError(
+                    "hallucination_score must be null when status is INSUFFICIENT_EVIDENCE."
+                )
+        return self
 

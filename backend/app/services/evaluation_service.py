@@ -182,6 +182,7 @@ class EvaluationService:
                 retrieved_evidence=retrieved_evidence
             )
             hallucination_eval = HallucinationEvaluationResult(
+                status=hallucination_res.result.status,
                 hallucination_score=hallucination_res.result.hallucination_score,
                 reasoning=hallucination_res.result.reasoning,
                 model_used=hallucination_res.model_used

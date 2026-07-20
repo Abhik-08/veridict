@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 
 from app.schemas.retrieval import RetrievedChunk
 
+_MODEL_USED_DESCRIPTION = "Gemini model used for evaluation."
+
 
 class EvaluationRequest(BaseModel):
     """
@@ -98,7 +100,7 @@ class RelevanceEvaluationResult(BaseModel):
 
     model_used: str = Field(
         ...,
-        description="Gemini model used for evaluation."
+        description=_MODEL_USED_DESCRIPTION
     )
 
 
@@ -120,27 +122,30 @@ class AccuracyEvaluationResult(BaseModel):
 
     model_used: str = Field(
         ...,
-        description="Gemini model used for evaluation."
+        description=_MODEL_USED_DESCRIPTION
     )
 
 
 class HallucinationEvaluationResult(BaseModel):
     """Result of the Hallucination Judge evaluation."""
 
-    hallucination_score: int = Field(
-        ...,
-        ge=1,
-        le=5,
-        description="Hallucination score (1-5)."
+    status: str = Field(
+        default="SUCCESS",
+        description="Evaluation outcome status: 'SUCCESS' or 'INSUFFICIENT_EVIDENCE'."
+    )
+
+    hallucination_score: int | None = Field(
+        default=None,
+        description="Hallucination score (1-5), or null when status is INSUFFICIENT_EVIDENCE."
     )
 
     reasoning: str = Field(
         ...,
         min_length=1,
-        description="Reasoning explaining the hallucination score."
+        description="Reasoning explaining the hallucination score or why evidence was insufficient."
     )
 
     model_used: str = Field(
         ...,
-        description="Gemini model used for evaluation."
+        description=_MODEL_USED_DESCRIPTION
     )

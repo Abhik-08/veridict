@@ -32,7 +32,8 @@ export interface AccuracyEvaluation {
 }
 
 export interface HallucinationEvaluation {
-  hallucination_score: number
+  status?: string
+  hallucination_score: number | null
   reasoning: string
   model_used: string
 }
@@ -127,6 +128,11 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
     }
   }
 
+  // Check if hallucination evaluation is INSUFFICIENT_EVIDENCE
+  const isInsufficientEvidence = (eval_data: HallucinationEvaluation | null | undefined): boolean => {
+    return eval_data?.status === 'INSUFFICIENT_EVIDENCE'
+  }
+
   // Get hallucination score label and styling
   const getHallucinationLabel = (score: number) => {
     switch (score) {
@@ -143,6 +149,52 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
       default:
         return { text: 'Unknown', colorClass: 'bg-muted/15 border-muted/30 text-muted' }
     }
+  }
+
+  // Render the hallucination status badge
+  const renderHallucinationBadge = () => {
+    if (!hallucination_evaluation) {
+      return (
+        <span className="text-[10px] font-semibold border border-muted/30 bg-muted/10 text-muted px-2.5 py-0.5 rounded-full uppercase">
+          Unavailable
+        </span>
+      )
+    }
+    if (isInsufficientEvidence(hallucination_evaluation)) {
+      return (
+        <span className="text-[10px] font-semibold border rounded-full px-2.5 py-0.5 uppercase bg-muted/15 border-muted/30 text-muted">
+          Insufficient Evidence
+        </span>
+      )
+    }
+    const label = getHallucinationLabel(hallucination_evaluation.hallucination_score!)
+    return (
+      <span className={`text-[10px] font-semibold border rounded-full px-2.5 py-0.5 uppercase ${label.colorClass}`}>
+        {label.text}
+      </span>
+    )
+  }
+
+  // Render the hallucination score display
+  const renderHallucinationScore = () => {
+    if (!hallucination_evaluation) {
+      return <span className="text-3xl font-display font-bold text-muted">—</span>
+    }
+    if (isInsufficientEvidence(hallucination_evaluation)) {
+      return (
+        <span className="text-lg font-display font-semibold text-muted italic">
+          Not Evaluated
+        </span>
+      )
+    }
+    return (
+      <>
+        <span className="text-4xl font-display font-bold text-text-primary">
+          {hallucination_evaluation.hallucination_score}
+        </span>
+        <span className="text-sm text-muted">/ 5</span>
+      </>
+    )
   }
 
   return (
@@ -271,28 +323,11 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
                     <ShieldAlert size={16} className="text-primary" />
                     Hallucination
                   </h4>
-                  {hallucination_evaluation ? (
-                    <span className={`text-[10px] font-semibold border rounded-full px-2.5 py-0.5 uppercase ${getHallucinationLabel(hallucination_evaluation.hallucination_score).colorClass}`}>
-                      {getHallucinationLabel(hallucination_evaluation.hallucination_score).text}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-semibold border border-muted/30 bg-muted/10 text-muted px-2.5 py-0.5 rounded-full uppercase">
-                      Unavailable
-                    </span>
-                  )}
+                  {renderHallucinationBadge()}
                 </div>
 
                 <div className="flex items-baseline gap-1 mt-1">
-                  {hallucination_evaluation ? (
-                    <>
-                      <span className="text-4xl font-display font-bold text-text-primary">
-                        {hallucination_evaluation.hallucination_score}
-                      </span>
-                      <span className="text-sm text-muted">/ 5</span>
-                    </>
-                  ) : (
-                    <span className="text-3xl font-display font-bold text-muted">—</span>
-                  )}
+                  {renderHallucinationScore()}
                 </div>
 
                 <p className="text-xs text-text-secondary leading-relaxed font-light mt-1">

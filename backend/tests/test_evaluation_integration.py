@@ -69,6 +69,7 @@ def setup_mocks():
 
     mock_hallucination = MagicMock()
     expected_hal_output = HallucinationJudgeOutput(
+        status="SUCCESS",
         hallucination_score=5,
         reasoning="Factually grounded."
     )
@@ -135,6 +136,7 @@ class TestEvaluationIntegration:
 
         # Hallucination evaluation result check
         assert data["hallucination_evaluation"] is not None
+        assert data["hallucination_evaluation"]["status"] == "SUCCESS"
         assert data["hallucination_evaluation"]["hallucination_score"] == 5
         assert data["hallucination_evaluation"]["reasoning"] == "Factually grounded."
         assert data["hallucination_evaluation"]["model_used"] == "gemini-2.5-flash"
@@ -178,6 +180,7 @@ class TestEvaluationIntegration:
         assert len(data["retrieved_chunks"]) == 0
         assert data["relevance_evaluation"]["relevance_score"] == 5
         assert data["accuracy_evaluation"]["accuracy_score"] == 5
+        assert data["hallucination_evaluation"]["status"] == "SUCCESS"
         assert data["hallucination_evaluation"]["hallucination_score"] == 5
 
         # Verify None values passed down
@@ -234,6 +237,45 @@ class TestEvaluationIntegration:
         # Config error is not swallowed
         assert response.status_code == 500
         assert "Bad credentials" in response.json()["detail"]
+
+    def test_evaluate_hallucination_insufficient_evidence_flow(self, client, setup_mocks):
+        """Verify INSUFFICIENT_EVIDENCE status is serialized correctly through the full API."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
+
+        # Override hallucination mock to return INSUFFICIENT_EVIDENCE
+        insufficient_output = HallucinationJudgeOutput(
+            status="INSUFFICIENT_EVIDENCE",
+            hallucination_score=None,
+            reasoning="No reference answer or relevant retrieved evidence was available to evaluate grounding."
+        )
+        insufficient_result = JudgeLLMResult[HallucinationJudgeOutput](
+            result=insufficient_output,
+            model_used="gemini-2.5-flash"
+        )
+        mock_hallucination.evaluate_hallucination.return_value = insufficient_result
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "What is the capital of France?",
+                "ai_response": "Paris is the capital of France.",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Relevance and accuracy still succeed
+        assert data["relevance_evaluation"] is not None
+        assert data["accuracy_evaluation"] is not None
+
+        # Hallucination returns INSUFFICIENT_EVIDENCE
+        hal = data["hallucination_evaluation"]
+        assert hal is not None
+        assert hal["status"] == "INSUFFICIENT_EVIDENCE"
+        assert hal["hallucination_score"] is None
+        assert "evidence" in hal["reasoning"].lower()
+        assert hal["model_used"] == "gemini-2.5-flash"
 
 
 # ──────────────────────────────────────────────

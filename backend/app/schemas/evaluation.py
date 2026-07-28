@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.retrieval import RetrievedChunk
+from app.schemas.judge import VerdictOutput
 
 _MODEL_USED_DESCRIPTION = "Gemini model used for evaluation."
 
@@ -81,6 +82,16 @@ class EvaluationResponse(BaseModel):
         description="Hallucination judge evaluation result, or null if unavailable."
     )
 
+    completeness_evaluation: "CompletenessEvaluationResult | None" = Field(
+        default=None,
+        description="Completeness judge evaluation result, or null if unavailable."
+    )
+
+    verdict_evaluation: "VerdictOutput | None" = Field(
+        default=None,
+        description="Aggregated verdict evaluation result, or null if unavailable."
+    )
+
 
 class RelevanceEvaluationResult(BaseModel):
     """Result of the Relevance Judge evaluation."""
@@ -143,6 +154,38 @@ class HallucinationEvaluationResult(BaseModel):
         ...,
         min_length=1,
         description="Reasoning explaining the hallucination score or why evidence was insufficient."
+    )
+
+    model_used: str = Field(
+        ...,
+        description=_MODEL_USED_DESCRIPTION
+    )
+
+
+class CompletenessEvaluationResult(BaseModel):
+    """Result of the Completeness Judge evaluation."""
+
+    completeness_score: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="Completeness score (1-5)."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="Reasoning explaining the completeness score."
+    )
+
+    covered_aspects: list[str] = Field(
+        default_factory=list,
+        description="Aspects of the question answered in the response."
+    )
+
+    missing_aspects: list[str] = Field(
+        default_factory=list,
+        description="Aspects of the question missing from the response."
     )
 
     model_used: str = Field(

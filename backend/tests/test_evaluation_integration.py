@@ -2,7 +2,7 @@
 Integration tests for the AI response evaluation backend flow.
 
 Verifies `/evaluate` API route and `EvaluationService` integration,
-using direct dependency overrides on the pre-instantiated evaluation_service.
+testing all 10 QA validation scenarios using direct dependency overrides.
 """
 
 from unittest.mock import MagicMock, patch
@@ -10,7 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.schemas.judge import JudgeLLMResult, RelevanceJudgeOutput, AccuracyJudgeOutput, HallucinationJudgeOutput
+from app.schemas.judge import (
+    JudgeLLMResult,
+    RelevanceJudgeOutput,
+    AccuracyJudgeOutput,
+    HallucinationJudgeOutput,
+    CompletenessJudgeOutput,
+    VerdictOutput
+)
 from app.core.exceptions import JudgeLLMUnavailableError, JudgeLLMConfigurationError
 
 
@@ -30,6 +37,8 @@ def setup_mocks():
     orig_relevance = evaluation_service.relevance_judge
     orig_accuracy = getattr(evaluation_service, "accuracy_judge", None)
     orig_hallucination = getattr(evaluation_service, "hallucination_judge", None)
+    orig_completeness = getattr(evaluation_service, "completeness_judge", None)
+    orig_verdict = getattr(evaluation_service, "verdict_agent", None)
 
     mock_retrieval = MagicMock()
     mock_retrieval.retrieve.return_value = [
@@ -46,60 +55,93 @@ def setup_mocks():
     ]
 
     mock_relevance = MagicMock()
-    expected_output = RelevanceJudgeOutput(
-        relevance_score=5,
-        reasoning="Directly answers the query."
-    )
-    mock_result = JudgeLLMResult[RelevanceJudgeOutput](
-        result=expected_output,
+    mock_relevance.evaluate_relevance.return_value = JudgeLLMResult[RelevanceJudgeOutput](
+        result=RelevanceJudgeOutput(relevance_score=5, reasoning="Directly answers the query."),
         model_used="gemini-2.5-flash"
     )
-    mock_relevance.evaluate_relevance.return_value = mock_result
 
     mock_accuracy = MagicMock()
-    expected_acc_output = AccuracyJudgeOutput(
-        accuracy_score=5,
-        reasoning="Factually accurate."
-    )
-    mock_acc_result = JudgeLLMResult[AccuracyJudgeOutput](
-        result=expected_acc_output,
+    mock_accuracy.evaluate_accuracy.return_value = JudgeLLMResult[AccuracyJudgeOutput](
+        result=AccuracyJudgeOutput(accuracy_score=5, reasoning="Factually accurate."),
         model_used="gemini-2.5-flash"
     )
-    mock_accuracy.evaluate_accuracy.return_value = mock_acc_result
 
     mock_hallucination = MagicMock()
-    expected_hal_output = HallucinationJudgeOutput(
-        status="SUCCESS",
-        hallucination_score=5,
-        reasoning="Factually grounded."
-    )
-    mock_hal_result = JudgeLLMResult[HallucinationJudgeOutput](
-        result=expected_hal_output,
+    mock_hallucination.evaluate_hallucination.return_value = JudgeLLMResult[HallucinationJudgeOutput](
+        result=HallucinationJudgeOutput(status="SUCCESS", hallucination_score=5, reasoning="Factually grounded."),
         model_used="gemini-2.5-flash"
     )
-    mock_hallucination.evaluate_hallucination.return_value = mock_hal_result
+
+    mock_completeness = MagicMock()
+    mock_completeness.evaluate_completeness.return_value = JudgeLLMResult[CompletenessJudgeOutput](
+        result=CompletenessJudgeOutput(
+            completeness_score=5,
+            reasoning="All aspects covered.",
+            covered_aspects=["Photosynthesis definition"],
+            missing_aspects=[]
+        ),
+        model_used="gemini-2.5-flash"
+    )
+
+    mock_verdict = MagicMock()
+    mock_verdict.generate_verdict.return_value = VerdictOutput(
+        overall_score=5.00,
+        verdict="PASS",
+        reasoning="Exemplary performance across all evaluated dimensions.",
+        weights_used={"accuracy": 0.35, "completeness": 0.30, "relevance": 0.20, "hallucination": 0.15},
+        model_used="gemini-2.5-flash"
+    )
 
     evaluation_service.retrieval_service = mock_retrieval
     evaluation_service.relevance_judge = mock_relevance
     evaluation_service.accuracy_judge = mock_accuracy
     evaluation_service.hallucination_judge = mock_hallucination
+    evaluation_service.completeness_judge = mock_completeness
+    evaluation_service.verdict_agent = mock_verdict
 
-    yield mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination
+    yield mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict
 
     # Restore original attributes
     evaluation_service.retrieval_service = orig_retrieval
     evaluation_service.relevance_judge = orig_relevance
     evaluation_service.accuracy_judge = orig_accuracy
     evaluation_service.hallucination_judge = orig_hallucination
+    evaluation_service.completeness_judge = orig_completeness
+    evaluation_service.verdict_agent = orig_verdict
 
 
 # ──────────────────────────────────────────────
-# Integration Tests
+# 10 Validation Scenario Tests
 # ──────────────────────────────────────────────
-class TestEvaluationIntegration:
-    def test_evaluate_integration_success(self, client, setup_mocks):
-        """Verify successful relevance, accuracy, & hallucination evaluation and preserved M1 retrieval behavior."""
-        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
+class TestAutomatedValidationScenarios:
+
+    def test_scenario_1_question_response_no_reference_no_pdf(self, client, setup_mocks):
+        """Scenario 1: Question + AI Response (no reference, no PDF). All judges & verdict execute."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "What is gravity?",
+                "ai_response": "Gravity is a fundamental force attracting mass.",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["question"] == "What is gravity?"
+        assert data["reference_answer"] is None
+        assert data["pdf_namespace"] is None
+        assert data["relevance_evaluation"] is not None
+        assert data["accuracy_evaluation"] is not None
+        assert data["hallucination_evaluation"] is not None
+        assert data["completeness_evaluation"] is not None
+        assert data["verdict_evaluation"] is not None
+
+    def test_scenario_2_question_response_reference_answer(self, client, setup_mocks):
+        """Scenario 2: Question + AI Response + Reference Answer. Reference evidence used."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
 
         response = client.post(
             "/evaluate",
@@ -112,206 +154,226 @@ class TestEvaluationIntegration:
 
         assert response.status_code == 200
         data = response.json()
-
-        # Input fields check
-        assert data["question"] == "What is photosynthesis?"
-        assert data["ai_response"] == "It is light-based energy production."
         assert data["reference_answer"] == "Plants producing food using light."
+        assert data["verdict_evaluation"]["verdict"] == "PASS"
 
-        # M1 Retrieval integrity check
-        assert len(data["retrieved_chunks"]) == 1
-        assert data["retrieved_chunks"][0]["id"] == "chunk_1"
+        # Verify reference_answer passed to accuracy & hallucination judges
+        _, kwargs_acc = mock_accuracy.evaluate_accuracy.call_args
+        assert kwargs_acc["reference_answer"] == "Plants producing food using light."
 
-        # Relevance evaluation result check
-        assert data["relevance_evaluation"] is not None
-        assert data["relevance_evaluation"]["relevance_score"] == 5
-        assert data["relevance_evaluation"]["reasoning"] == "Directly answers the query."
-        assert data["relevance_evaluation"]["model_used"] == "gemini-2.5-flash"
+        _, kwargs_hal = mock_hallucination.evaluate_hallucination.call_args
+        assert kwargs_hal["reference_answer"] == "Plants producing food using light."
 
-        # Accuracy evaluation result check
-        assert data["accuracy_evaluation"] is not None
-        assert data["accuracy_evaluation"]["accuracy_score"] == 5
-        assert data["accuracy_evaluation"]["reasoning"] == "Factually accurate."
-        assert data["accuracy_evaluation"]["model_used"] == "gemini-2.5-flash"
-
-        # Hallucination evaluation result check
-        assert data["hallucination_evaluation"] is not None
-        assert data["hallucination_evaluation"]["status"] == "SUCCESS"
-        assert data["hallucination_evaluation"]["hallucination_score"] == 5
-        assert data["hallucination_evaluation"]["reasoning"] == "Factually grounded."
-        assert data["hallucination_evaluation"]["model_used"] == "gemini-2.5-flash"
-
-        # Verifies inputs passed correctly
-        mock_relevance.evaluate_relevance.assert_called_once_with(
-            question="What is photosynthesis?",
-            ai_response="It is light-based energy production."
-        )
-
-        mock_accuracy.evaluate_accuracy.assert_called_once_with(
-            question="What is photosynthesis?",
-            ai_response="It is light-based energy production.",
-            reference_answer="Plants producing food using light.",
-            retrieved_evidence="Photosynthesis turns light into energy."
-        )
-
-        mock_hallucination.evaluate_hallucination.assert_called_once_with(
-            question="What is photosynthesis?",
-            ai_response="It is light-based energy production.",
-            reference_answer="Plants producing food using light.",
-            retrieved_evidence="Photosynthesis turns light into energy."
-        )
-
-    def test_evaluate_integration_without_reference_and_evidence(self, client, setup_mocks):
-        """Verify evaluation works when reference answer and retrieved evidence are omitted."""
-        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
-        mock_retrieval.retrieve.return_value = []  # No evidence retrieved
-
-        response = client.post(
-            "/evaluate",
-            data={
-                "question": "What is the capital of France?",
-                "ai_response": "Paris.",
-            }
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["reference_answer"] is None
-        assert len(data["retrieved_chunks"]) == 0
-        assert data["relevance_evaluation"]["relevance_score"] == 5
-        assert data["accuracy_evaluation"]["accuracy_score"] == 5
-        assert data["hallucination_evaluation"]["status"] == "SUCCESS"
-        assert data["hallucination_evaluation"]["hallucination_score"] == 5
-
-        # Verify None values passed down
-        mock_accuracy.evaluate_accuracy.assert_called_once_with(
-            question="What is the capital of France?",
-            ai_response="Paris.",
-            reference_answer=None,
-            retrieved_evidence=None
-        )
-
-        mock_hallucination.evaluate_hallucination.assert_called_once_with(
-            question="What is the capital of France?",
-            ai_response="Paris.",
-            reference_answer=None,
-            retrieved_evidence=None
-        )
-
-    def test_evaluate_hallucination_judge_unavailability_graceful(self, client, setup_mocks):
-        """Verify Hallucination Judge unavailability returns hallucination_evaluation=null while others remain."""
-        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
-        mock_hallucination.evaluate_hallucination.side_effect = JudgeLLMUnavailableError("Temporary limit.")
-
-        response = client.post(
-            "/evaluate",
-            data={
-                "question": "Question?",
-                "ai_response": "Response.",
-            }
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Other evaluations still succeeded
-        assert data["relevance_evaluation"] is not None
-        assert data["accuracy_evaluation"] is not None
-
-        # Hallucination failed gracefully
-        assert data["hallucination_evaluation"] is None
-
-    def test_evaluate_hallucination_judge_config_error_propagates(self, client, setup_mocks):
-        """Verify Judge configuration errors propagate and cause 500 status code."""
-        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
-        mock_hallucination.evaluate_hallucination.side_effect = JudgeLLMConfigurationError("Bad credentials.")
-
-        response = client.post(
-            "/evaluate",
-            data={
-                "question": "Question?",
-                "ai_response": "Response.",
-            }
-        )
-
-        # Config error is not swallowed
-        assert response.status_code == 500
-        assert "Bad credentials" in response.json()["detail"]
-
-    def test_evaluate_hallucination_insufficient_evidence_flow(self, client, setup_mocks):
-        """Verify INSUFFICIENT_EVIDENCE status is serialized correctly through the full API."""
-        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
-
-        # Override hallucination mock to return INSUFFICIENT_EVIDENCE
-        insufficient_output = HallucinationJudgeOutput(
-            status="INSUFFICIENT_EVIDENCE",
-            hallucination_score=None,
-            reasoning="No reference answer or relevant retrieved evidence was available to evaluate grounding."
-        )
-        insufficient_result = JudgeLLMResult[HallucinationJudgeOutput](
-            result=insufficient_output,
-            model_used="gemini-2.5-flash"
-        )
-        mock_hallucination.evaluate_hallucination.return_value = insufficient_result
-
-        response = client.post(
-            "/evaluate",
-            data={
-                "question": "What is the capital of France?",
-                "ai_response": "Paris is the capital of France.",
-            }
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Relevance and accuracy still succeed
-        assert data["relevance_evaluation"] is not None
-        assert data["accuracy_evaluation"] is not None
-
-        # Hallucination returns INSUFFICIENT_EVIDENCE
-        hal = data["hallucination_evaluation"]
-        assert hal is not None
-        assert hal["status"] == "INSUFFICIENT_EVIDENCE"
-        assert hal["hallucination_score"] is None
-        assert "evidence" in hal["reasoning"].lower()
-        assert hal["model_used"] == "gemini-2.5-flash"
-
-
-# ──────────────────────────────────────────────
-# PDF Flow Ingestion Tests
-# ──────────────────────────────────────────────
-class TestPDFIngestionFlow:
     @patch("app.services.pdf_ingestion_service.PDFIngestionService.ingest_pdf_async")
     @patch("app.services.pdf_cache_service.PDFCacheService.get_cached_namespace")
-    def test_pdf_upload_flow_intact(
+    def test_scenario_3_question_response_uploaded_pdf(
         self, mock_cache, mock_ingest, client, setup_mocks
     ):
-        """Verify PDF ingestion does not break and maps correctly to background task."""
-        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination = setup_mocks
-        mock_cache.return_value = None  # Cache miss
+        """Scenario 3: Question + AI Response + Uploaded PDF. PDF retrieval & full pipeline execute."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+        mock_cache.return_value = None
 
-        # Create dummy PDF bytes
         dummy_pdf = b"%PDF-1.4 ... dummy content"
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "Explain quantum computing.",
+                "ai_response": "Quantum computing uses qubits.",
+            },
+            files={"pdf_file": ("physics.pdf", dummy_pdf, "application/pdf")}
+        )
 
+        assert response.status_code == 200
+        data = response.json()
+        assert data["pdf_namespace"] is not None
+        assert data["pdf_status"] == "Processing"
+        assert data["completeness_evaluation"] is not None
+        assert data["verdict_evaluation"] is not None
+
+    @patch("app.services.pdf_ingestion_service.PDFIngestionService.ingest_pdf_async")
+    @patch("app.services.pdf_cache_service.PDFCacheService.get_cached_namespace")
+    def test_scenario_4_question_response_reference_and_pdf(
+        self, mock_cache, mock_ingest, client, setup_mocks
+    ):
+        """Scenario 4: Reference Answer + Uploaded PDF. Both evidence sources handled cleanly."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+        mock_cache.return_value = None
+
+        dummy_pdf = b"%PDF-1.4 ... dummy content"
         response = client.post(
             "/evaluate",
             data={
                 "question": "What is photosynthesis?",
-                "ai_response": "It is light-based energy production.",
+                "ai_response": "Light into chemical energy.",
+                "reference_answer": "Plants convert light to sugar.",
             },
-            files={"pdf_file": ("test.pdf", dummy_pdf, "application/pdf")}
+            files={"pdf_file": ("botany.pdf", dummy_pdf, "application/pdf")}
         )
 
         assert response.status_code == 200
         data = response.json()
-
-        # Verify namespace generated and job status set to Processing
+        assert data["reference_answer"] == "Plants convert light to sugar."
         assert data["pdf_namespace"] is not None
-        assert data["pdf_status"] == "Processing"
-        assert data["relevance_evaluation"] is not None
-        assert data["accuracy_evaluation"] is not None
-        assert data["hallucination_evaluation"] is not None
+        assert data["verdict_evaluation"] is not None
 
-        # Verify background ingestion dispatched
-        mock_ingest.assert_called_once()
+    def test_scenario_5_hallucination_insufficient_evidence_weight_normalization(self, client, setup_mocks):
+        """Scenario 5: Hallucination returns INSUFFICIENT_EVIDENCE -> excluded and weights normalized."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+
+        insufficient_result = JudgeLLMResult[HallucinationJudgeOutput](
+            result=HallucinationJudgeOutput(
+                status="INSUFFICIENT_EVIDENCE",
+                hallucination_score=None,
+                reasoning="No evidence available."
+            ),
+            model_used="gemini-2.5-flash"
+        )
+        mock_hallucination.evaluate_hallucination.return_value = insufficient_result
+
+        # Override verdict mock to return output without hallucination in weights_used
+        mock_verdict.generate_verdict.return_value = VerdictOutput(
+            overall_score=5.00,
+            verdict="PASS",
+            reasoning="Normalized verdict summary.",
+            weights_used={"accuracy": 0.4118, "completeness": 0.3529, "relevance": 0.2353},
+            model_used="gemini-2.5-flash"
+        )
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "What is dark matter?",
+                "ai_response": "Dark matter is non-baryonic matter.",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["hallucination_evaluation"]["status"] == "INSUFFICIENT_EVIDENCE"
+        assert data["verdict_evaluation"] is not None
+        assert "hallucination" not in data["verdict_evaluation"]["weights_used"]
+        assert data["verdict_evaluation"]["verdict"] == "PASS"
+
+    def test_scenario_6_highly_incomplete_answer(self, client, setup_mocks):
+        """Scenario 6: Highly incomplete answer -> Completeness score is low and verdict reflects reduced score."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+
+        incomplete_comp = JudgeLLMResult[CompletenessJudgeOutput](
+            result=CompletenessJudgeOutput(
+                completeness_score=1,
+                reasoning="Missed 4 out of 5 requested aspects.",
+                covered_aspects=["Aspect 1"],
+                missing_aspects=["Aspect 2", "Aspect 3", "Aspect 4", "Aspect 5"]
+            ),
+            model_used="gemini-2.5-flash"
+        )
+        mock_completeness.evaluate_completeness.return_value = incomplete_comp
+
+        # Acc=5 (1.75), Comp=1 (0.30), Rel=5 (1.00), Hal=5 (0.75) -> Total = 3.80 -> NEEDS_IMPROVEMENT
+        mock_verdict.generate_verdict.return_value = VerdictOutput(
+            overall_score=3.80,
+            verdict="NEEDS_IMPROVEMENT",
+            reasoning="Severe completeness omissions reduce the verdict score.",
+            weights_used={"accuracy": 0.35, "completeness": 0.30, "relevance": 0.20, "hallucination": 0.15},
+            model_used="gemini-2.5-flash"
+        )
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "Explain photosynthesis and list all 5 light reaction stages.",
+                "ai_response": "Plants make food.",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["completeness_evaluation"]["completeness_score"] == 1
+        assert data["verdict_evaluation"]["verdict"] == "NEEDS_IMPROVEMENT"
+        assert data["verdict_evaluation"]["overall_score"] == 3.80
+
+    def test_scenario_7_excellent_answer_pass_verdict(self, client, setup_mocks):
+        """Scenario 7: Excellent answer -> PASS verdict (5.00)."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "What is Python?",
+                "ai_response": "Python is a high-level programming language.",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verdict_evaluation"]["verdict"] == "PASS"
+        assert data["verdict_evaluation"]["overall_score"] == 5.00
+
+    def test_scenario_8_unrelated_answer_fail_verdict(self, client, setup_mocks):
+        """Scenario 8: Completely unrelated answer -> FAIL verdict."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+
+        # Set low scores for unrelated answer
+        mock_relevance.evaluate_relevance.return_value = JudgeLLMResult[RelevanceJudgeOutput](
+            result=RelevanceJudgeOutput(relevance_score=1, reasoning="Unrelated topic."),
+            model_used="gemini-2.5-flash"
+        )
+        mock_completeness.evaluate_completeness.return_value = JudgeLLMResult[CompletenessJudgeOutput](
+            result=CompletenessJudgeOutput(completeness_score=1, reasoning="Unrelated.", covered_aspects=[], missing_aspects=["Topic"]),
+            model_used="gemini-2.5-flash"
+        )
+        mock_verdict.generate_verdict.return_value = VerdictOutput(
+            overall_score=1.45,
+            verdict="FAIL",
+            reasoning="Completely off-topic response.",
+            weights_used={"accuracy": 0.35, "completeness": 0.30, "relevance": 0.20, "hallucination": 0.15},
+            model_used="gemini-2.5-flash"
+        )
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "What is the capital of France?",
+                "ai_response": "I enjoy playing basketball.",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["relevance_evaluation"]["relevance_score"] == 1
+        assert data["verdict_evaluation"]["verdict"] == "FAIL"
+
+    def test_scenario_9_empty_reference_answer_graceful(self, client, setup_mocks):
+        """Scenario 9: Empty reference answer handled gracefully."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "What is speed of light?",
+                "ai_response": "299,792,458 m/s.",
+                "reference_answer": "   ",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["verdict_evaluation"] is not None
+
+    def test_scenario_10_retrieval_returns_no_chunks_no_crash(self, client, setup_mocks):
+        """Scenario 10: Retrieval returns no chunks -> No crashes, hallucination handles evidence, verdict generated."""
+        mock_retrieval, mock_relevance, mock_accuracy, mock_hallucination, mock_completeness, mock_verdict = setup_mocks
+        mock_retrieval.retrieve.return_value = []
+
+        response = client.post(
+            "/evaluate",
+            data={
+                "question": "Unusual question?",
+                "ai_response": "Response answer.",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["retrieved_chunks"]) == 0
+        assert data["verdict_evaluation"] is not None

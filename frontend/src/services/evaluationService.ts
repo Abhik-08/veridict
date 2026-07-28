@@ -30,3 +30,23 @@ export const evaluateResponse = async ({
 
   return response.data;
 };
+
+export const exportEvaluationPDF = async (resultData: any) => {
+  const response = await api.post("/evaluate/export-pdf", resultData, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    responseType: "blob",
+  });
+
+  const blob = new Blob([response.data], { type: "application/pdf" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  const nowStr = new Date().toISOString().slice(0, 10);
+  link.download = `Veridict-Evaluation-Report-${nowStr}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};

@@ -11,7 +11,7 @@ import json
 import logging
 import random
 import time
-from typing import Type, TypeVar
+from typing import Any, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 from google import genai
@@ -44,6 +44,11 @@ _RETRYABLE_GRPC_STATUSES: set[str] = {
 }
 
 
+class JudgeLLMTransientResponseError(Exception):
+    """Raised when Gemini returns an empty, whitespace, or empty JSON response that should be retried."""
+    pass
+
+
 def _is_retryable(error: APIError) -> bool:
     """
     Classify whether an APIError is transient and safe to retry.
@@ -71,6 +76,30 @@ def _is_retryable(error: APIError) -> bool:
     return False
 
 
+def _is_empty_or_blank_response(response: Any) -> bool:
+    """
+    Check if Gemini response object is empty, whitespace-only, has empty candidates,
+    or contains empty JSON ('{}' or '[]').
+    """
+    if response is None:
+        return True
+
+    # Check candidates attribute if explicitly a list/tuple
+    candidates = getattr(response, "candidates", None)
+    if candidates is not None and isinstance(candidates, (list, tuple)) and len(candidates) == 0:
+        return True
+
+    text = getattr(response, "text", None)
+    if text is None or not isinstance(text, str):
+        return True
+
+    stripped = text.strip()
+    if not stripped or stripped in ("{}", "[]", "null"):
+        return True
+
+    return False
+
+
 class JudgeLLMService:
     """
     Reusable service for sending evaluation prompts to the Gemini
@@ -78,7 +107,7 @@ class JudgeLLMService:
 
     Features:
     - Configurable primary model with ordered fallbacks
-    - Exponential-backoff retries for transient failures
+    - Exponential-backoff retries for transient failures and empty responses
     - Automatic model fallback on exhaustion/unavailability
     - Structured JSON output via response_schema
     - Pydantic validation of LLM responses
@@ -155,7 +184,7 @@ class JudgeLLMService:
 
         Raises:
             JudgeLLMConfigurationError: Non-retryable config/auth error.
-            JudgeLLMResponseValidationError: LLM returned invalid output.
+            JudgeLLMResponseValidationError: LLM returned invalid output schema.
             JudgeLLMUnavailableError: All models exhausted.
         """
         if not prompt or not prompt.strip():
@@ -202,7 +231,7 @@ class JudgeLLMService:
     ) -> JudgeLLMResult[T]:
         """
         Attempt to call a single Gemini model with exponential-backoff
-        retries for transient failures.
+        retries for transient failures and empty responses.
 
         Args:
             model_name: Gemini model identifier.
@@ -227,8 +256,8 @@ class JudgeLLMService:
                     output_model=output_model,
                 )
 
-            except APIError as exc:
-                if not _is_retryable(exc):
+            except (APIError, JudgeLLMTransientResponseError) as exc:
+                if isinstance(exc, APIError) and not _is_retryable(exc):
                     # Non-retryable API error — fail immediately
                     logger.exception(
                         "Non-retryable API error from model '%s': "
@@ -243,16 +272,15 @@ class JudgeLLMService:
                         f"{exc.code} {exc.status} — {exc.message}"
                     ) from exc
 
-                # Retryable — apply exponential backoff
+                # Retryable API error or transient response error — apply exponential backoff
                 delay = self._compute_backoff_delay(attempt)
                 logger.warning(
-                    "Retryable error from model '%s' (attempt %d/%d): "
-                    "code=%s status=%s — retrying in %.2fs",
+                    "Retryable response error from model '%s' (attempt %d/%d): "
+                    "%s — retrying in %.2fs",
                     model_name,
                     attempt + 1,
                     self.max_retries,
-                    exc.code,
-                    exc.status,
+                    exc,
                     delay,
                 )
                 time.sleep(delay)
@@ -314,6 +342,7 @@ class JudgeLLMService:
 
         Raises:
             APIError: On any Gemini API error.
+            JudgeLLMTransientResponseError: If response text is empty, whitespace, empty candidates, or empty JSON.
             json.JSONDecodeError: If response text is not valid JSON.
             ValidationError: If JSON does not match the Pydantic schema.
         """
@@ -329,13 +358,13 @@ class JudgeLLMService:
             config=config,
         )
 
-        # Extract text from response
-        raw_text = response.text
-        if not raw_text or not raw_text.strip():
-            raise JudgeLLMResponseValidationError(
-                message="Gemini returned an empty response.",
-                raw_response=raw_text,
+        # Check for empty / blank / empty candidates / empty JSON response
+        if _is_empty_or_blank_response(response):
+            raise JudgeLLMTransientResponseError(
+                "Gemini returned an empty response, empty candidates, or empty JSON."
             )
+
+        raw_text = response.text
 
         # Parse JSON
         parsed = json.loads(raw_text)

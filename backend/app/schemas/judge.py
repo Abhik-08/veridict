@@ -123,3 +123,80 @@ class HallucinationJudgeOutput(BaseModel):
                 )
         return self
 
+
+class CompletenessJudgeOutput(BaseModel):
+    """
+    Structured output schema for the Completeness Judge Agent.
+    """
+
+    completeness_score: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="The completeness score of the response from 1 (incomplete) to 5 (completely covers all requested aspects)."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="A concise explanation detailing which requested aspects were covered or missing."
+    )
+
+    covered_aspects: list[str] = Field(
+        default_factory=list,
+        description="List of specific question aspects/requirements satisfied by the AI response."
+    )
+
+    missing_aspects: list[str] = Field(
+        default_factory=list,
+        description="List of specific question aspects/requirements missed or omitted by the AI response."
+    )
+
+
+class VerdictReasoningOutput(BaseModel):
+    """
+    Structured LLM output schema for the Verdict Agent reasoning generation.
+    """
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="A concise summary explanation synthesising the judge scores, calculated overall score, and final verdict."
+    )
+
+
+class VerdictOutput(BaseModel):
+    """
+    Final aggregated verdict result output model.
+    """
+
+    overall_score: float = Field(
+        ...,
+        ge=1.0,
+        le=5.0,
+        description="Deterministic weighted average overall quality score (1.00 to 5.00)."
+    )
+
+    verdict: Literal["PASS", "NEEDS_IMPROVEMENT", "FAIL"] = Field(
+        ...,
+        description="Final quality verdict category based on overall score thresholds."
+    )
+
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="Synthesized summary reasoning explaining the verdict."
+    )
+
+    weights_used: dict[str, float] = Field(
+        ...,
+        description="Normalized weights applied to judge scores during weighted average calculation."
+    )
+
+    model_used: str = Field(
+        ...,
+        description="Gemini model that generated the verdict reasoning summary."
+    )
+
+
+

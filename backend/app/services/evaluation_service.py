@@ -8,14 +8,18 @@ from app.schemas.evaluation import (
     EvaluationResponse,
     RelevanceEvaluationResult,
     AccuracyEvaluationResult,
-    HallucinationEvaluationResult
+    HallucinationEvaluationResult,
+    CompletenessEvaluationResult
 )
+from app.schemas.judge import VerdictOutput
 from app.schemas.retrieval import RetrievedChunk
 from app.services.pdf_ingestion_service import PDFIngestionService
 from app.services.retrieval_service import RetrievalService
 from app.agents.relevance_judge import RelevanceJudge
 from app.agents.accuracy_judge import AccuracyJudge
 from app.agents.hallucination_judge import HallucinationJudge
+from app.agents.completeness_judge import CompletenessJudge
+from app.agents.verdict_agent import VerdictAgent
 from app.core.exceptions import JudgeLLMConfigurationError
 
 logger = logging.getLogger(__name__)
@@ -37,6 +41,8 @@ class EvaluationService:
         self.relevance_judge = RelevanceJudge()
         self.accuracy_judge = AccuracyJudge()
         self.hallucination_judge = HallucinationJudge()
+        self.completeness_judge = CompletenessJudge()
+        self.verdict_agent = VerdictAgent()
 
     async def _ingest_pdf(
         self,
@@ -108,6 +114,8 @@ class EvaluationService:
         """
         pdf_namespace = None
         pdf_status = None
+
+        logger.info("Evaluation pipeline started.")
 
         # -------------------------------------------------
         # Ingest uploaded PDF (if provided)
@@ -193,6 +201,47 @@ class EvaluationService:
             logger.exception("Temporary Hallucination Judge unavailability encountered.")
 
         # -------------------------------------------------
+        # Evaluate response completeness
+        # -------------------------------------------------
+        completeness_eval = None
+        try:
+            completeness_res = self.completeness_judge.evaluate_completeness(
+                question=request.question,
+                ai_response=request.ai_response
+            )
+            completeness_eval = CompletenessEvaluationResult(
+                completeness_score=completeness_res.result.completeness_score,
+                reasoning=completeness_res.result.reasoning,
+                covered_aspects=completeness_res.result.covered_aspects,
+                missing_aspects=completeness_res.result.missing_aspects,
+                model_used=completeness_res.model_used
+            )
+        except (JudgeLLMConfigurationError, ValueError):
+            raise
+        except Exception:
+            logger.exception("Temporary Completeness Judge unavailability encountered.")
+
+        # -------------------------------------------------
+        # Synthesize overall evaluation verdict
+        # -------------------------------------------------
+        verdict_eval = None
+        try:
+            verdict_eval = self.verdict_agent.generate_verdict(
+                question=request.question,
+                ai_response=request.ai_response,
+                accuracy_eval=accuracy_eval,
+                completeness_eval=completeness_eval,
+                relevance_eval=relevance_eval,
+                hallucination_eval=hallucination_eval
+            )
+        except (JudgeLLMConfigurationError, ValueError):
+            raise
+        except Exception:
+            logger.exception("Temporary Verdict Agent unavailability encountered.")
+
+        logger.info("Evaluation pipeline completed.")
+
+        # -------------------------------------------------
         # Build response
         # -------------------------------------------------
         return EvaluationResponse(
@@ -204,5 +253,7 @@ class EvaluationService:
             pdf_status=pdf_status,
             relevance_evaluation=relevance_eval,
             accuracy_evaluation=accuracy_eval,
-            hallucination_evaluation=hallucination_eval
+            hallucination_evaluation=hallucination_eval,
+            completeness_evaluation=completeness_eval,
+            verdict_evaluation=verdict_eval
         )

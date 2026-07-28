@@ -207,7 +207,8 @@ class TestNonRetryableNoFallback:
 
 
 # ──────────────────────────────────────────────
-# 6. Invalid JSON response is handled
+# ──────────────────────────────────────────────
+# 6. Invalid JSON & Empty Gemini Response handling
 # ──────────────────────────────────────────────
 class TestInvalidJSON:
     def test_non_json_response_raises_validation_error(self, service, mock_client):
@@ -219,14 +220,91 @@ class TestInvalidJSON:
         with pytest.raises(JudgeLLMResponseValidationError):
             service.evaluate("Test prompt", SampleJudgeOutput)
 
-    def test_empty_response_raises_validation_error(self, service, mock_client):
-        """LLM returns empty text → JudgeLLMResponseValidationError."""
-        mock_response = MagicMock()
-        mock_response.text = ""
-        mock_client.models.generate_content.return_value = mock_response
 
-        with pytest.raises(JudgeLLMResponseValidationError):
+class TestEmptyGeminiResponseRetries:
+    def test_empty_response_retry_succeeds(self, service, mock_client):
+        """Empty Gemini response on 1st attempt -> retries and succeeds on 2nd attempt."""
+        empty_response = MagicMock()
+        empty_response.text = ""
+        success_response = _make_success_response({"score": 5, "reasoning": "Succeeded on retry."})
+
+        mock_client.models.generate_content.side_effect = [
+            empty_response,
+            success_response
+        ]
+
+        result = service.evaluate("Test prompt", SampleJudgeOutput)
+
+        assert result.result.score == 5
+        assert result.model_used == "gemini-2.0-flash"
+        assert mock_client.models.generate_content.call_count == 2
+
+    def test_empty_json_response_retry_succeeds(self, service, mock_client):
+        """Empty JSON '{}' on 1st attempt -> retries and succeeds on 2nd attempt."""
+        empty_json_resp = MagicMock()
+        empty_json_resp.text = "{}"
+        success_response = _make_success_response({"score": 4, "reasoning": "Succeeded."})
+
+        mock_client.models.generate_content.side_effect = [
+            empty_json_resp,
+            success_response
+        ]
+
+        result = service.evaluate("Test prompt", SampleJudgeOutput)
+
+        assert result.result.score == 4
+        assert mock_client.models.generate_content.call_count == 2
+
+    def test_empty_candidates_response_retry_succeeds(self, service, mock_client):
+        """Empty candidates list on 1st attempt -> retries and succeeds on 2nd attempt."""
+        empty_candidates_resp = MagicMock()
+        empty_candidates_resp.candidates = []
+        empty_candidates_resp.text = None
+        success_response = _make_success_response({"score": 3, "reasoning": "Succeeded."})
+
+        mock_client.models.generate_content.side_effect = [
+            empty_candidates_resp,
+            success_response
+        ]
+
+        result = service.evaluate("Test prompt", SampleJudgeOutput)
+
+        assert result.result.score == 3
+        assert mock_client.models.generate_content.call_count == 2
+
+    def test_empty_response_primary_fails_fallback_succeeds(self, service, mock_client):
+        """Primary model returns empty responses on all retries -> fallback model succeeds."""
+        empty_response = MagicMock()
+        empty_response.text = "   "  # whitespace
+        success_response = _make_success_response({"score": 5, "reasoning": "Fallback success."})
+
+        mock_client.models.generate_content.side_effect = [
+            # Primary: 2 retries, both return empty response
+            empty_response,
+            empty_response,
+            # Fallback 1: succeeds
+            success_response
+        ]
+
+        result = service.evaluate("Test prompt", SampleJudgeOutput)
+
+        assert result.result.score == 5
+        assert result.model_used == "gemini-2.0-flash-lite"
+        assert mock_client.models.generate_content.call_count == 3
+
+    def test_empty_response_all_models_fail_raises_unavailable(self, service, mock_client):
+        """All models return empty responses on all retries -> raises JudgeLLMUnavailableError."""
+        empty_response = MagicMock()
+        empty_response.text = ""
+
+        # 3 models x 2 retries = 6 empty responses
+        mock_client.models.generate_content.side_effect = [empty_response] * 6
+
+        with pytest.raises(JudgeLLMUnavailableError) as exc_info:
             service.evaluate("Test prompt", SampleJudgeOutput)
+
+        assert len(exc_info.value.attempted_models) == 3
+        assert mock_client.models.generate_content.call_count == 6
 
 
 # ──────────────────────────────────────────────

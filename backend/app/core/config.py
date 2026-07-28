@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     INGESTION_JOBS_FILE: str = "app/knowledge/processed/ingestion_jobs.json"
 
     # ==============================
+    # Batch Evaluation Configuration
+    # ==============================
+    MAX_BATCH_ROWS: int = 30
+    BATCH_SIZE: int = 3
+    MAX_BATCH_RETRIES: int = 2
+
+    # ==============================
     # Pydantic Settings Configuration
     # ==============================
     model_config = SettingsConfigDict(

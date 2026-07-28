@@ -88,3 +88,45 @@ export interface EvaluationResultData {
   completeness_evaluation?: CompletenessEvaluation | null
   verdict_evaluation?: VerdictEvaluation | null
 }
+
+/** Batch Evaluation domain interfaces */
+export interface BatchItemEvaluationResult {
+  id: string
+  row_index: number
+  question: string
+  ai_response: string
+  reference_answer?: string | null
+  evidence_text?: string | null
+  evidence_source: 'REFERENCE_ANSWER' | 'EVIDENCE_PDF' | 'KNOWLEDGE_BASE' | 'NO_EVIDENCE'
+  relevance_score: number
+  accuracy_score: number
+  hallucination_score: number | null
+  completeness_score: number
+  confidence: number
+  overall_score: number
+  verdict: 'PASS' | 'NEEDS_IMPROVEMENT' | 'FAIL'
+  reasoning: string
+  status: 'COMPLETED' | 'FAILED'
+  error_message?: string | null
+}
+
+export interface BatchProgress {
+  batch_id: string
+  filename: string
+  file_type: 'CSV' | 'PDF'
+  total_rows: number
+  processed_rows: number
+  remaining_rows: number
+  current_batch: number
+  total_batches: number
+  completed_count: number
+  failed_count: number
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  error_message?: string | null
+  error?: string | null
+  elapsed_seconds?: number | null
+  gemini_call_count?: number | null
+  statistics?: Record<string, any> | null
+  items: BatchItemEvaluationResult[]
+}
+

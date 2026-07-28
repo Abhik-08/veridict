@@ -15,13 +15,15 @@ venv/
 # Environment Variables
 .env
 .env.*
+!.env.example
 
-# Python Cache
+# Python Cache & Testing
 .pytest_cache/
 .mypy_cache/
 .pyre/
 .coverage
 htmlcov/
+coverage/
 
 # ==========================
 # Node / React
@@ -37,10 +39,12 @@ yarn-debug.log*
 yarn-error.log*
 
 # ==========================
-# VS Code
+# IDE & Editors
 # ==========================
 
 .vscode/
+.idea/
+*.swp
 
 # ==========================
 # Operating System
@@ -57,24 +61,6 @@ Desktop.ini
 .cache/
 .huggingface/
 
-# ==========================
-# Generated Files
-# ==========================
-
-#backend/app/knowledge/processed/
-
-# Uncomment if you don't want datasets on GitHub
-# backend/app/knowledge/datasets/
-
-# ==========================
-# Misc
-# ==========================
-
-.idea/
-*.swp
-
-app/knowledge/processed/embedded_chunks.json
-app/knowledge/processed/ingestion_progress.json
 # ==========================
 # Runtime RAG / PDF State
 # ==========================

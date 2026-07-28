@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.api.retrieval import router as retrieval_router
 from app.api.evaluation import router as evaluation_router
+from app.api.batch_evaluation import router as batch_evaluation_router
 from app.services.pdf_ingestion_service import PDFIngestionService
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -100,3 +101,4 @@ def health():
 # ==============================
 app.include_router(retrieval_router)
 app.include_router(evaluation_router)
+app.include_router(batch_evaluation_router)

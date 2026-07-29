@@ -11,18 +11,28 @@ import {
 import { BatchEvaluationDashboard } from '@/components/BatchEvaluation/BatchEvaluationDashboard'
 import { ToastContainer, type ToastMessage } from '@/components/Toast'
 import { useMounted } from '@/hooks'
+import { useEvaluation } from '@/context/EvaluationContext'
 import { cn } from '@/utils'
 import { ArrowRight, RefreshCw, Loader2, UserCheck, Layers, Upload, Play, BarChart2, Download } from 'lucide-react'
 import { evaluateResponse } from '@/services/evaluationService'
 
 export function HomePage() {
   const mounted = useMounted()
+  const {
+    engineMode,
+    setEngineMode,
+    singleState,
+    updateSingleState,
+    clearSingleState,
+  } = useEvaluation()
 
-  // Engine Mode: 'single' vs 'batch'
-  const [engineMode, setEngineMode] = useState<'single' | 'batch'>('single')
-
-  // Toast System
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [file, setFile] = useState<File | null>(null)
+  const [isEvaluating, setIsEvaluating] = useState(false)
+  const [errors, setErrors] = useState<{
+    question?: string
+    response?: string
+  }>({})
 
   const dismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
@@ -34,21 +44,6 @@ export function HomePage() {
     setTimeout(() => dismissToast(id), 4000)
   }
 
-  // Single Evaluation Form State
-  const [question, setQuestion] = useState('')
-  const [response, setResponse] = useState('')
-  const [reference, setReference] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-
-  // Single Evaluation Validation States
-  const [errors, setErrors] = useState<{
-    question?: string
-    response?: string
-  }>({})
-
-  const [isEvaluating, setIsEvaluating] = useState(false)
-  const [evaluationResult, setEvaluationResult] = useState<any>(null)
-
   // Single Evaluation Form Handlers
   const handleEvaluate = async (e: SyntheticEvent) => {
     e.preventDefault()
@@ -59,10 +54,10 @@ export function HomePage() {
       response?: string
     } = {}
 
-    if (!question.trim()) {
+    if (!singleState.question.trim()) {
       newErrors.question = 'Question is required.'
     }
-    if (!response.trim()) {
+    if (!singleState.response.trim()) {
       newErrors.response = 'AI Generated Response is required.'
     }
 
@@ -74,14 +69,17 @@ export function HomePage() {
 
     try {
       const result = await evaluateResponse({
-        question,
-        aiResponse: response,
-        referenceAnswer: reference,
+        question: singleState.question,
+        aiResponse: singleState.response,
+        referenceAnswer: singleState.reference,
         file,
       })
 
-      setEvaluationResult(result)
-      addToast('success', 'Evaluation Complete', `Verdict: ${result.verdict} (${result.overall_score.toFixed(2)})`)
+      updateSingleState({ evaluationResult: result })
+
+      const score = result.overall_score ?? result.verdict_evaluation?.overall_score ?? 0
+      const verdict = result.verdict ?? result.verdict_evaluation?.verdict ?? 'COMPLETED'
+      addToast('success', 'Evaluation Complete', `Verdict: ${verdict} (${typeof score === 'number' ? score.toFixed(2) : score})`)
     } catch (error: any) {
       console.error('Evaluation failed:', error)
       addToast('error', 'Evaluation Failed', error.message || 'Could not connect to backend server.')
@@ -92,12 +90,9 @@ export function HomePage() {
 
   const handleReset = () => {
     if (isEvaluating) return
-    setQuestion('')
-    setResponse('')
-    setReference('')
     setFile(null)
     setErrors({})
-    setEvaluationResult(null)
+    clearSingleState()
     addToast('info', 'Form Cleared')
   }
 
@@ -199,9 +194,9 @@ export function HomePage() {
                     id="question"
                     label="Question / Prompt"
                     required
-                    value={question}
+                    value={singleState.question}
                     onChange={(e) => {
-                      setQuestion(e.target.value)
+                      updateSingleState({ question: e.target.value })
                       if (errors.question) {
                         setErrors((prev) => ({
                           ...prev,
@@ -219,9 +214,9 @@ export function HomePage() {
                     label="AI Generated Response"
                     required
                     rows={4}
-                    value={response}
+                    value={singleState.response}
                     onChange={(e) => {
-                      setResponse(e.target.value)
+                      updateSingleState({ response: e.target.value })
                       if (errors.response) {
                         setErrors((prev) => ({
                           ...prev,
@@ -239,8 +234,8 @@ export function HomePage() {
                     label="Reference Answer"
                     optional
                     rows={2}
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
+                    value={singleState.reference}
+                    onChange={(e) => updateSingleState({ reference: e.target.value })}
                     placeholder="Provide the expected ground-truth correct answer..."
                     disabled={isEvaluating}
                   />
@@ -249,9 +244,27 @@ export function HomePage() {
                     id="file-upload"
                     label="Source PDF Document"
                     file={file}
-                    onChange={setFile}
+                    onChange={(newFile) => {
+                      setFile(newFile)
+                      updateSingleState({
+                        fileMetadata: newFile ? { name: newFile.name, size: newFile.size, type: newFile.type } : null,
+                      })
+                    }}
                     maxSizeMB={10}
                   />
+
+                  {singleState.fileMetadata && !file && (
+                    <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-md flex items-center justify-between">
+                      <span>Restored file context: <strong>{singleState.fileMetadata.name}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => updateSingleState({ fileMetadata: null })}
+                        className="text-slate-400 hover:text-white underline ml-2"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
 
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3 border-t border-border/80">
                     <GlowButton
@@ -293,8 +306,8 @@ export function HomePage() {
             </SectionContainer>
           </section>
 
-          {evaluationResult !== null && (
-            <EvaluationResult result={evaluationResult} />
+          {singleState.evaluationResult !== null && (
+            <EvaluationResult result={singleState.evaluationResult} />
           )}
         </>
       )}

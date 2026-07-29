@@ -3,31 +3,42 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # ==============================
-    # Environment
+    # Environment & Server Config
     # ==============================
-    GOOGLE_API_KEY: str
-    PINECONE_API_KEY: str
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    LOG_LEVEL: str = "INFO"
+    JWT_DEBUG_LOGGING: bool = False
+    BACKEND_CORS_ORIGINS: str = "http://localhost:5173"
 
     # ==============================
-    # Knowledge Base
+    # AI & LLM Settings
+    # ==============================
+    GOOGLE_API_KEY: str
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    # ==============================
+    # Pinecone Vector Store
+    # ==============================
+    PINECONE_API_KEY: str
+    PINECONE_INDEX_NAME: str = "veridict-knowledge-base"
+    PINECONE_NAMESPACE: str = "default"
+
+    # ==============================
+    # Database & Supabase
+    # ==============================
+    DATABASE_URL: str = ""
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+
+    # ==============================
+    # Knowledge Base & Chunking
     # ==============================
     SAMPLE_SIZE: int = 1000
     RANDOM_SEED: int = 42
-
-    # ==============================
-    # Chunking
-    # ==============================
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 100
-
-    # ==============================
-    # Retrieval
-    # ==============================
     TOP_K: int = 5
-
-    # ==============================
-    # Models
-    # ==============================
     EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     # ==============================
@@ -41,12 +52,7 @@ class Settings(BaseSettings):
     JUDGE_TEMPERATURE: float = 0.0
 
     # ==============================
-    # Vector Database
-    # ==============================
-    PINECONE_INDEX_NAME: str = "veridict-knowledge-base"
-
-    # ==============================
-    # PDF Ingestion & Optimization Configuration
+    # PDF Ingestion & Optimization
     # ==============================
     MAX_PDF_PAGES: int = 500
     MAX_PDF_SIZE_BYTES: int = 52428800  # 50 MB

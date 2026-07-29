@@ -6,6 +6,12 @@ pydantic-settings>=2.2.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
 python-multipart>=0.0.9
 
+# Database & Supabase Dependencies
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+psycopg[binary]>=3.1.0
+supabase>=2.0.0
+
 # AI & RAG Engine Dependencies
 google-genai>=2.0.0
 pinecone>=5.0.0

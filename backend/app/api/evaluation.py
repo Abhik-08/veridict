@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Annotated, Any
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     Form,
     HTTPException,
@@ -11,6 +12,8 @@ from fastapi import (
     Body
 )
 
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthenticatedUser
 from app.schemas.evaluation import (
     EvaluationRequest,
     EvaluationResponse
@@ -41,7 +44,8 @@ async def evaluate_response(
     question: Annotated[str, Form(...)],
     ai_response: Annotated[str, Form(...)],
     reference_answer: Annotated[str | None, Form()] = None,
-    pdf_file: Annotated[UploadFile | None, File()] = None
+    pdf_file: Annotated[UploadFile | None, File()] = None,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
 ):
     """
     Prepare the evaluation payload.
@@ -80,7 +84,10 @@ async def evaluate_response(
         500: {"description": "Internal Server Error during PDF generation"}
     }
 )
-async def export_evaluation_pdf(payload: Annotated[dict[str, Any], Body()]):
+async def export_evaluation_pdf(
+    payload: Annotated[dict[str, Any], Body()],
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+):
     """
     Generate and stream an enterprise multi-page PDF evaluation report.
     """

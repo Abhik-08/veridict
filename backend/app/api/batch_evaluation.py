@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Depends,
     File,
     HTTPException,
     Response,
@@ -16,6 +17,8 @@ from fastapi import (
     status,
 )
 
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthenticatedUser
 from app.schemas.batch_evaluation import BatchProgress
 from app.services.batch_evaluation_service import BatchEvaluationService
 from app.services.batch_parsers import CSVBatchParser, PDFBatchParser
@@ -36,6 +39,7 @@ async def evaluate_batch_csv(
     file: Annotated[UploadFile, File(description="CSV Upload file containing Question and AI Response columns")],
     evidence_pdf: Annotated[UploadFile | None, File(description="Optional evidence context PDF")] = None,
     background_tasks: BackgroundTasks = BackgroundTasks(),
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
 ) -> BatchProgress:
     """Parse CSV upload, resolve optional evidence PDF, and launch background batch evaluation."""
     if not file.filename or not file.filename.lower().endswith(".csv"):
@@ -93,6 +97,7 @@ async def evaluate_batch_pdf(
     file: Annotated[UploadFile, File(description="Digital searchable QA PDF file")],
     evidence_pdf: Annotated[UploadFile | None, File(description="Optional evidence context PDF")] = None,
     background_tasks: BackgroundTasks = BackgroundTasks(),
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
 ) -> BatchProgress:
     """Parse Digital QA PDF upload, resolve optional evidence PDF, and launch background batch evaluation."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -144,7 +149,10 @@ async def evaluate_batch_pdf(
     "/progress/{batch_id}",
     summary="Get Batch Evaluation Progress",
 )
-async def get_batch_progress(batch_id: str) -> BatchProgress:
+async def get_batch_progress(
+    batch_id: str,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+) -> BatchProgress:
     """Fetch current progress status of an active or completed batch evaluation job."""
     progress = batch_service.get_progress(batch_id)
     if not progress:
@@ -159,7 +167,10 @@ async def get_batch_progress(batch_id: str) -> BatchProgress:
     "/export-csv/{batch_id}",
     summary="Export Evaluated CSV Report",
 )
-async def export_batch_csv(batch_id: str) -> Response:
+async def export_batch_csv(
+    batch_id: str,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+) -> Response:
     """Download evaluated dataset results as a CSV file."""
     progress = batch_service.get_progress(batch_id)
     if not progress:
@@ -185,7 +196,10 @@ async def export_batch_csv(batch_id: str) -> Response:
     "/export-pdf/{batch_id}",
     summary="Export Executive Batch Evaluation PDF Report",
 )
-async def export_batch_pdf(batch_id: str) -> Response:
+async def export_batch_pdf(
+    batch_id: str,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+) -> Response:
     """Download executive batch evaluation report as a PDF document."""
     progress = batch_service.get_progress(batch_id)
     if not progress:

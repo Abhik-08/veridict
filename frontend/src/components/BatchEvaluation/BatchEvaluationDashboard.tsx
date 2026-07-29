@@ -6,7 +6,7 @@
  * number-first metric cards, and sticky table headers/columns.
  */
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   FileText,
   Upload,
@@ -23,7 +23,6 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Cpu,
   Layers,
   BarChart3,
   Check,
@@ -39,6 +38,10 @@ import {
   exportBatchCSV,
   exportBatchPDF,
 } from '../../services/batchEvaluationService'
+import { useEvaluation } from '@/context/EvaluationContext'
+import { useDebounce } from '../../hooks'
+import { HighlightMatch } from '../HighlightMatch'
+import { searchEngine } from '../../search'
 
 interface BatchEvaluationDashboardProps {
   onToast?: (type: 'success' | 'error' | 'info' | 'warning', title: string, message?: string) => void
@@ -199,64 +202,81 @@ const getStageTextStyle = (done: boolean, active: boolean): string => {
 }
 
 const ProcessingTimelineStepper: React.FC<{ progress: BatchProgress }> = ({ progress }) => {
-  const [showDetails, setShowDetails] = useState(false)
   const isCompleted = progress.status === 'COMPLETED'
-  const isProcessing = progress.status === 'PROCESSING' || progress.status === 'PENDING'
-  const processedRows = progress.processed_rows || 0
+  const [showDetails, setShowDetails] = useState(!isCompleted)
 
-  const stages = [
-    { label: 'Dataset Uploaded', done: true, active: false },
-    { label: 'Context Loaded', done: true, active: false },
-    { label: 'Evidence Retrieved', done: processedRows > 0 || isCompleted, active: isProcessing && processedRows === 0 },
-    { label: 'Gemini Evaluation', done: isCompleted, active: isProcessing },
-    { label: 'Reports Generated', done: isCompleted, active: isCompleted },
+  const steps = [
+    {
+      num: 1,
+      title: 'File Parsed',
+      desc: `${progress.total_rows} QA pairs loaded into batch queue`,
+      done: progress.processed_rows > 0 || isCompleted,
+      active: progress.status === 'PROCESSING' && progress.processed_rows === 0,
+    },
+    {
+      num: 2,
+      title: 'LLM Batches Scheduled',
+      desc: `${progress.current_batch} of ${progress.total_batches} batches executed`,
+      done: isCompleted || (progress.current_batch > 1 && progress.current_batch <= progress.total_batches),
+      active: progress.status === 'PROCESSING' && progress.current_batch > 0 && !isCompleted,
+    },
+    {
+      num: 3,
+      title: 'Judge Evaluation Complete',
+      desc: isCompleted ? `Evaluated ${progress.total_rows} items successfully` : 'Aggregating judge scores...',
+      done: isCompleted,
+      active: progress.status === 'PROCESSING' && progress.current_batch === progress.total_batches && !isCompleted,
+    },
+    {
+      num: 4,
+      title: 'Export Ready',
+      desc: isCompleted ? 'CSV & PDF Executive Reports ready for export' : 'Pending completion',
+      done: isCompleted,
+      active: false,
+    },
   ]
 
-  if (isCompleted && !showDetails) {
-    return (
-      <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex items-center justify-between text-slate-300">
-        <span className="flex items-center gap-2 font-medium text-emerald-400">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          Evaluation Pipeline Completed
-        </span>
+  return (
+    <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-amber-400" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+            Pipeline Execution Timeline
+          </h4>
+        </div>
         <button
-          onClick={() => setShowDetails(true)}
-          className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1"
+          type="button"
+          onClick={() => setShowDetails(!showDetails)}
+          className="text-xs font-semibold text-slate-400 hover:text-amber-400 transition-colors flex items-center gap-1"
         >
-          View Processing Steps <ChevronDown className="w-3 h-3" />
+          {showDetails ? 'Collapse Details' : 'Expand Details'}
+          {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>
-    )
-  }
 
-  return (
-    <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 text-xs space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {stages.map((st, idx) => (
-          <React.Fragment key={st.label}>
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${getStageBadgeStyle(
-                  st.done,
-                  st.active
-                )}`}
-              >
-                {st.done ? '✓' : idx + 1}
-              </span>
-              <span className={getStageTextStyle(st.done, st.active)}>{st.label}</span>
-            </div>
-            {idx < stages.length - 1 && <span className="text-slate-700 hidden sm:inline">→</span>}
-          </React.Fragment>
-        ))}
-      </div>
-      {isCompleted && (
-        <div className="flex justify-end pt-1">
-          <button
-            onClick={() => setShowDetails(false)}
-            className="text-[10px] font-semibold text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1"
-          >
-            Hide Processing Steps <ChevronUp className="w-3 h-3" />
-          </button>
+      {showDetails && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+          {steps.map((s) => {
+            let statusText = 'Pending'
+            if (s.done) statusText = 'Done'
+            else if (s.active) statusText = 'Active'
+
+            return (
+              <div key={s.num} className="p-3 rounded-lg bg-slate-950/60 border border-slate-800/60 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${getStageBadgeStyle(s.done, s.active)}`}>
+                    {s.done ? <Check className="w-3 h-3" /> : s.num}
+                  </span>
+                  <span className={`text-[10px] font-mono ${getStageTextStyle(s.done, s.active)}`}>
+                    {statusText}
+                  </span>
+                </div>
+                <p className={`text-xs font-bold ${getStageTextStyle(s.done, s.active)}`}>{s.title}</p>
+                <p className="text-[11px] text-slate-400 leading-tight">{s.desc}</p>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -285,7 +305,6 @@ const MetricCardsGrid: React.FC<{ items: BatchItemEvaluationResult[]; progress: 
       : '0'
 
   const elapsedSeconds = progress.elapsed_seconds || (progress.statistics?.elapsed_seconds ?? null)
-  const geminiCalls = progress.gemini_call_count || (progress.statistics?.gemini_call_count ?? (progress.total_batches || 1))
 
   const metrics = [
     { label: 'Total Items', val: totalCount, icon: Layers, color: 'text-white', tooltip: 'Total QA pairs evaluated in dataset' },
@@ -294,21 +313,20 @@ const MetricCardsGrid: React.FC<{ items: BatchItemEvaluationResult[]; progress: 
     { label: 'Failed', val: failCount, icon: XCircle, color: 'text-rose-400', tooltip: 'Responses with major factual issues' },
     { label: 'Avg Score', val: `${avgOverall} / 5`, icon: BarChart3, color: 'text-white', tooltip: 'Weighted average evaluation score across 4 dimensions' },
     { label: 'Avg Confidence', val: `${avgConfidence}%`, icon: Check, color: 'text-slate-200', tooltip: 'Average confidence returned by Gemini judge models' },
-    { label: 'Gemini Calls', val: geminiCalls, icon: Cpu, color: 'text-amber-400', tooltip: 'Number of grouped LLM requests' },
     { label: 'Duration', val: elapsedSeconds ? `${elapsedSeconds}s` : 'Active', icon: Clock, color: 'text-slate-200', tooltip: 'Total evaluation wall-clock duration' },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
       {metrics.map((m) => {
         const Icon = m.icon
         return (
-          <div key={m.label} title={m.tooltip} className="p-3 rounded-lg bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-colors cursor-help">
+          <div key={m.label} title={m.tooltip} className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-colors cursor-help flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className={`text-xl font-bold ${m.color}`}>{m.val}</span>
-              <Icon className="w-3.5 h-3.5 text-slate-500" />
+              <span className={`text-xl font-extrabold ${m.color}`}>{m.val}</span>
+              <Icon className="w-4 h-4 text-slate-500" />
             </div>
-            <span className="text-[10px] font-medium text-slate-400 mt-1 block">{m.label}</span>
+            <span className="text-xs font-semibold text-slate-400 mt-2 block">{m.label}</span>
           </div>
         )
       })}
@@ -317,114 +335,37 @@ const MetricCardsGrid: React.FC<{ items: BatchItemEvaluationResult[]; progress: 
 }
 
 // ──────────────────────────────────────────────
-// Sub-component: Batch Summary Panel
+// Sub-component: Batch Progress Monitor Component
 // ──────────────────────────────────────────────
-const BatchSummaryPanel: React.FC<{ items: BatchItemEvaluationResult[]; progress: BatchProgress }> = ({
-  items,
-  progress,
-}) => {
-  const totalCount = items.length
-  const passCount = items.filter((i) => i.verdict === 'PASS').length
-  const impCount = items.filter((i) => i.verdict === 'NEEDS_IMPROVEMENT').length
-  const failCount = items.filter((i) => i.verdict === 'FAIL' || i.status === 'FAILED').length
-
-  const avgOverall =
-    totalCount > 0 ? (items.reduce((acc, i) => acc + (i.overall_score || 0), 0) / totalCount).toFixed(2) : '0.00'
-
-  const elapsedSeconds = progress.elapsed_seconds || (progress.statistics?.elapsed_seconds ?? null)
-
-  return (
-    <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
-      <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-          Evaluation Summary
-        </h3>
-        <span className="text-xs text-slate-400">
-          Average Score: <strong className="text-white">{avgOverall} / 5.00</strong>
-          {elapsedSeconds && <span className="ml-3">Processing Time: <strong className="text-slate-300">{elapsedSeconds}s</strong></span>}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-        <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-emerald-300">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-emerald-400">✓ Passed ({passCount})</span>
-            <p className="text-[11px] text-emerald-300/80 mt-0.5">
-              {passCount} responses satisfied all quality checks.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-amber-950/20 border border-amber-500/20 text-amber-300">
-          <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-amber-400">⚠ Needs Improvement ({impCount})</span>
-            <p className="text-[11px] text-amber-300/80 mt-0.5">
-              {impCount} responses require minor revisions.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-rose-950/20 border border-rose-500/20 text-rose-300">
-          <XCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-rose-400">✗ Failed ({failCount})</span>
-            <p className="text-[11px] text-rose-300/80 mt-0.5">
-              {failCount} responses contained major factual inaccuracies.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ──────────────────────────────────────────────
-// Sub-component: Job Progress Card & Embedded Footer Actions
-// ──────────────────────────────────────────────
-const JobProgressCard: React.FC<{
+const BatchProgressMonitorCard: React.FC<{
   progress: BatchProgress
-  exportingCSV: boolean
-  exportingPDF: boolean
+  onReset: () => void
   onExportCSV: () => void
   onExportPDF: () => void
-  onReset: () => void
-}> = ({ progress, exportingCSV, exportingPDF, onExportCSV, onExportPDF, onReset }) => {
-  const percent =
-    progress.total_rows > 0 ? Math.round((progress.processed_rows / progress.total_rows) * 100) : 0
-
+  exportingCSV: boolean
+  exportingPDF: boolean
+}> = ({ progress, onReset, onExportCSV, onExportPDF, exportingCSV, exportingPDF }) => {
+  const percent = progress.total_rows > 0 ? Math.round((progress.processed_rows / progress.total_rows) * 100) : 0
   const elapsedSeconds = progress.elapsed_seconds || (progress.statistics?.elapsed_seconds ?? null)
   const geminiCalls = progress.gemini_call_count || (progress.statistics?.gemini_call_count ?? (progress.total_batches || 1))
 
+  let statusBadgeStyle = 'bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse'
+  if (progress.status === 'COMPLETED') {
+    statusBadgeStyle = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+  } else if (progress.status === 'FAILED') {
+    statusBadgeStyle = 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+  }
+
   return (
-    <div className="glass-card p-5 rounded-xl border border-slate-800 space-y-4 bg-slate-900/60">
-      {/* Dominant Status Badge & Metadata */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="p-5 rounded-xl border border-slate-800 bg-slate-900/60 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
         <div>
           <div className="flex items-center gap-2.5">
-            {progress.status === 'PROCESSING' && (
-              <span className="flex items-center gap-2 text-xs font-bold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30 animate-pulse">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Evaluating Prompts...
-              </span>
-            )}
-            {progress.status === 'COMPLETED' && (
-              <span className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Evaluation Completed
-              </span>
-            )}
-            {progress.status === 'FAILED' && (
-              <span className="flex items-center gap-2 text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/30">
-                <XCircle className="w-3.5 h-3.5" />
-                Evaluation Failed
-              </span>
-            )}
-
-            <span className="text-sm font-semibold text-white">{progress.filename}</span>
-            <span className="px-2 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-800 rounded border border-slate-700">
-              {progress.batch_id}
+            <h3 className="text-sm font-bold text-white">
+              Batch Evaluation Job ({progress.batch_id})
+            </h3>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${statusBadgeStyle}`}>
+              {progress.status}
             </span>
           </div>
 
@@ -490,21 +431,34 @@ const JobProgressCard: React.FC<{
 }
 
 // ──────────────────────────────────────────────
-// Sub-component: Table Row with Sticky Question Column
+// Sub-component: Table Row with Sticky Question Column & Match Highlighting
 // ──────────────────────────────────────────────
 const BatchTableRow: React.FC<{
   item: BatchItemEvaluationResult
   isExpanded: boolean
   onToggleExpand: () => void
-}> = ({ item, isExpanded, onToggleExpand }) => {
+  searchQuery?: string
+}> = ({ item, isExpanded, onToggleExpand, searchQuery }) => {
   return (
     <tr className="hover:bg-slate-800/40 even:bg-slate-900/30 transition-colors duration-150">
-      <td className="px-3.5 py-3.5 font-mono text-amber-400 font-semibold align-top">{item.id}</td>
+      <td className="px-3.5 py-3.5 font-mono text-amber-400 font-semibold align-top">
+        <HighlightMatch text={item.id} query={searchQuery} />
+      </td>
 
       {/* Sticky Question & Response Column */}
       <td className="px-4 py-3.5 max-w-xl space-y-1 align-top sticky left-0 bg-slate-950/95 border-r border-slate-800/80 z-10 backdrop-blur-sm">
-        <div className="text-sm font-bold text-slate-100">Q: {item.question}</div>
-        <div className="text-xs text-slate-300 leading-normal">A: {item.ai_response}</div>
+        <div className="text-sm font-bold text-slate-100">
+          Q: <HighlightMatch text={item.question} query={searchQuery} />
+        </div>
+        <div className="text-xs text-slate-300 leading-normal">
+          A: <HighlightMatch text={item.ai_response} query={searchQuery} />
+        </div>
+        {item.reference_answer && (
+          <div className="text-[11px] text-slate-400 leading-normal pt-0.5">
+            <span className="text-slate-500 font-medium">Ref: </span>
+            <HighlightMatch text={item.reference_answer} query={searchQuery} />
+          </div>
+        )}
         {item.reasoning && (
           <div className="pt-1">
             <div
@@ -513,67 +467,74 @@ const BatchTableRow: React.FC<{
               }`}
             >
               <span className="text-slate-500 font-sans font-medium">Reasoning: </span>
-              {item.reasoning}
+              <HighlightMatch text={item.reasoning} query={searchQuery} />
             </div>
             {item.reasoning.length > 120 && (
               <button
                 onClick={onToggleExpand}
-                className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 mt-0.5 inline-flex items-center gap-0.5"
               >
-                {isExpanded ? (
-                  <>
-                    Show Less <ChevronUp className="w-3 h-3" />
-                  </>
-                ) : (
-                  <>
-                    Show Reasoning <ChevronDown className="w-3 h-3" />
-                  </>
-                )}
+                {isExpanded ? 'Show less' : 'Read full reasoning'}
               </button>
             )}
           </div>
         )}
       </td>
 
-      {/* Center-Aligned Metric Scores */}
-      <td className="px-3 py-3.5 text-center font-mono text-xs align-top pt-4">{item.relevance_score ?? '-'}</td>
-      <td className="px-3 py-3.5 text-center font-mono text-xs align-top pt-4">{item.accuracy_score ?? '-'}</td>
-      <td className="px-3 py-3.5 text-center font-mono text-xs align-top pt-4">{item.hallucination_score ?? '-'}</td>
-      <td className="px-3 py-3.5 text-center font-mono text-xs align-top pt-4">{item.completeness_score ?? '-'}</td>
-      <td className="px-3 py-3.5 text-center font-mono text-xs font-bold text-white align-top pt-4">
-        {item.overall_score !== undefined ? item.overall_score.toFixed(2) : '-'}
+      <td className="px-3.5 py-3.5 font-mono font-bold align-top">
+        {item.overall_score !== undefined ? (
+          <span className="text-white">{item.overall_score.toFixed(2)}</span>
+        ) : (
+          <span className="text-slate-500">-</span>
+        )}
       </td>
 
-      {/* Verdict Badge */}
-      <td className="px-4 py-3.5 text-center align-top pt-3.5">
+      <td className="px-3.5 py-3.5 font-mono text-xs align-top text-slate-300">
+        {item.accuracy_score !== undefined ? item.accuracy_score.toFixed(1) : '-'}
+      </td>
+      <td className="px-3.5 py-3.5 font-mono text-xs align-top text-slate-300">
+        {item.relevance_score !== undefined ? item.relevance_score.toFixed(1) : '-'}
+      </td>
+      <td className="px-3.5 py-3.5 font-mono text-xs align-top text-slate-300">
+        {item.completeness_score !== undefined ? item.completeness_score.toFixed(1) : '-'}
+      </td>
+      <td className="px-3.5 py-3.5 font-mono text-xs align-top text-slate-300">
+        {item.hallucination_score !== undefined && item.hallucination_score !== null ? item.hallucination_score.toFixed(1) : '-'}
+      </td>
+
+      <td className="px-3.5 py-3.5 align-top">
         <SoftVerdictBadge verdict={item.verdict} />
+      </td>
+
+      <td className="px-3.5 py-3.5 font-mono text-xs text-slate-400 align-top">
+        {item.confidence !== undefined ? `${(item.confidence * 100).toFixed(0)}%` : '-'}
       </td>
     </tr>
   )
 }
 
 // ──────────────────────────────────────────────
-// Sub-component: Upload Form
+// Sub-component: Batch Upload Form Card
 // ──────────────────────────────────────────────
-const BatchDatasetUploadForm: React.FC<{
+const BatchUploadForm: React.FC<{
   mode: 'CSV' | 'PDF'
+  onModeChange: (m: 'CSV' | 'PDF') => void
   batchFile: File | null
-  evidencePdf: File | null
-  loading: boolean
-  error: string | null
   onSetBatchFile: (f: File | null) => void
+  evidencePdf: File | null
   onSetEvidencePdf: (f: File | null) => void
   onSubmit: (e: React.SyntheticEvent) => void
+  loading: boolean
   onToast?: (type: 'success' | 'error' | 'info' | 'warning', title: string, message?: string) => void
 }> = ({
   mode,
+  onModeChange,
   batchFile,
-  evidencePdf,
-  loading,
-  error,
   onSetBatchFile,
+  evidencePdf,
   onSetEvidencePdf,
   onSubmit,
+  loading,
   onToast,
 }) => {
   return (
@@ -658,8 +619,8 @@ const BatchDatasetUploadForm: React.FC<{
                 <span className="text-xs font-bold text-slate-300">
                   📚 Context Evidence — Drag & Drop or Browse Files
                 </span>
-                <span className="text-[11px] text-slate-500 leading-normal" title="Used for semantic evidence retrieval">
-                  Used for semantic evidence retrieval during RAG evaluation.
+                <span className="text-[10px] text-slate-400">
+                  Used for grounding & RAG evidence retrieval
                 </span>
               </div>
             </div>
@@ -667,15 +628,31 @@ const BatchDatasetUploadForm: React.FC<{
         </div>
       </div>
 
-      {error && (
-        <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
-          <XCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{error}</span>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-400">Dataset Format:</span>
+          <div className="inline-flex p-0.5 rounded-lg bg-slate-950 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => onModeChange('CSV')}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
+                mode === 'CSV' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              CSV File
+            </button>
+            <button
+              type="button"
+              onClick={() => onModeChange('PDF')}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${
+                mode === 'PDF' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Digital QA PDF
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Primary Button — Prominent & Centered */}
-      <div className="flex justify-center pt-1">
         <button
           type="submit"
           disabled={loading || !batchFile}
@@ -702,6 +679,8 @@ const BatchDatasetUploadForm: React.FC<{
 // Main Component
 // ──────────────────────────────────────────────
 export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> = ({ onToast }) => {
+  const { batchState, updateBatchState, clearBatchState } = useEvaluation()
+
   const [mode, setMode] = useState<'CSV' | 'PDF'>('CSV')
   const [batchFile, setBatchFile] = useState<File | null>(null)
   const [evidencePdf, setEvidencePdf] = useState<File | null>(null)
@@ -710,15 +689,21 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
   const [exportingPDF, setExportingPDF] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [progress, setProgress] = useState<BatchProgress | null>(null)
+  const progress = batchState.batchProgress
   const [verdictFilter, setVerdictFilter] = useState<'ALL' | 'PASS' | 'NEEDS_IMPROVEMENT' | 'FAIL'>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
+  const debouncedSearchTerm = useDebounce(searchTerm, 250)
+
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const handlePollUpdate = (updated: BatchProgress) => {
-    setProgress(updated)
+    const items = updated.items || (updated as any).results || []
+    updateBatchState({
+      batchProgress: updated,
+      batchResults: items,
+    })
     if (updated.status === 'COMPLETED' || updated.status === 'FAILED') {
       if (pollingRef.current) clearInterval(pollingRef.current)
       if (updated.status === 'COMPLETED') {
@@ -758,7 +743,7 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
 
     setLoading(true)
     setError(null)
-    setProgress(null)
+    updateBatchState({ batchProgress: null, batchResults: [] })
     onToast?.('info', 'Submitting Batch Job', `Processing ${batchFile.name}...`)
 
     try {
@@ -768,7 +753,13 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
       } else {
         initialProgress = await evaluateBatchPDF(batchFile, evidencePdf || undefined)
       }
-      setProgress(initialProgress)
+      const initialItems = initialProgress.items || (initialProgress as any).results || []
+      updateBatchState({
+        batchId: initialProgress.batch_id,
+        batchProgress: initialProgress,
+        batchResults: initialItems,
+        batchFileMetadata: { name: batchFile.name, size: batchFile.size, type: batchFile.type },
+      })
       onToast?.('info', 'Batch Job Created', `ID: ${initialProgress.batch_id} — Evaluating in background...`)
     } catch (err: any) {
       const msg = err.response?.data?.detail || err.message || 'Batch evaluation submission failed.'
@@ -812,8 +803,8 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
   const resetForm = () => {
     setBatchFile(null)
     setEvidencePdf(null)
-    setProgress(null)
     setError(null)
+    clearBatchState()
     onToast?.('info', 'Batch Form Cleared')
   }
 
@@ -821,179 +812,200 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
     setExpandedRowId((prev) => (prev === id ? null : id))
   }
 
-  const items = progress?.items || []
-  const filteredItems = items.filter((item) => {
-    const matchesVerdict = verdictFilter === 'ALL' || item.verdict === verdictFilter
-    const matchesSearch =
-      searchTerm === '' ||
-      item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.ai_response.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesVerdict && matchesSearch
-  })
+  const rawResults: BatchItemEvaluationResult[] = progress?.items || (progress as any)?.results || batchState.batchResults || []
+
+  // Centralized Global Search Engine pipeline invocation
+  const searchResult = useMemo(() => {
+    return searchEngine.search({
+      items: rawResults,
+      query: debouncedSearchTerm,
+      filters: {
+        verdict: verdictFilter,
+      },
+    })
+  }, [rawResults, debouncedSearchTerm, verdictFilter])
+
+  const filteredResults = searchResult.items
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto px-4 py-2">
-      {/* 1. Compact Engine Header Toolbar */}
-      <div className="glass-card p-3.5 rounded-xl border border-slate-800 bg-slate-900/60">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-base font-bold text-white font-display">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Header Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h2 className="font-display text-xl font-extrabold tracking-tight text-white">
               Batch Evaluation Engine
-            </h1>
-            <CategorizedCapabilities />
+            </h2>
+            <span className="px-2.5 py-0.5 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full">
+              Production Mode
+            </span>
           </div>
-
-          {/* Mode Selector Switcher Right-Aligned */}
-          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 self-start lg:self-center">
-            <button
-              onClick={() => {
-                setMode('CSV')
-                setBatchFile(null)
-              }}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded transition-all duration-150 ${
-                mode === 'CSV'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              CSV
-            </button>
-            <button
-              onClick={() => {
-                setMode('PDF')
-                setBatchFile(null)
-              }}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded transition-all duration-150 ${
-                mode === 'PDF'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Digital PDF
-            </button>
-          </div>
+          <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+            Bulk evaluation pipeline supporting up to 30 QA pairs with grouped LLM processing.
+          </p>
+          <CategorizedCapabilities />
         </div>
+
+        {progress && (
+          <button
+            onClick={resetForm}
+            className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors self-start md:self-auto"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+            New Batch
+          </button>
+        )}
       </div>
 
-      {/* 2. Upload Form & Informative Empty State / File Previews */}
-      {!progress && (
-        <BatchDatasetUploadForm
-          mode={mode}
-          batchFile={batchFile}
-          evidencePdf={evidencePdf}
-          loading={loading}
-          error={error}
-          onSetBatchFile={setBatchFile}
-          onSetEvidencePdf={setEvidencePdf}
-          onSubmit={handleSubmit}
-          onToast={onToast}
-        />
+      {/* Error Alert */}
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-400" />
+          <span>{error}</span>
+        </div>
       )}
 
-      {/* 3. Contextual Timeline, Progress Card, Metrics, Summary & Results */}
-      {progress && (
+      {/* Primary Section: Upload Form OR Progress Monitor */}
+      {!progress ? (
+        <BatchUploadForm
+          mode={mode}
+          onModeChange={setMode}
+          batchFile={batchFile}
+          onSetBatchFile={setBatchFile}
+          evidencePdf={evidencePdf}
+          onSetEvidencePdf={setEvidencePdf}
+          onSubmit={handleSubmit}
+          loading={loading}
+          onToast={onToast}
+        />
+      ) : (
         <div className="space-y-4">
-          {/* Live / Collapsible Processing Timeline Stepper */}
-          <ProcessingTimelineStepper progress={progress} />
-
-          {/* Single Consolidated Progress Status Card */}
-          <JobProgressCard
+          <BatchProgressMonitorCard
             progress={progress}
-            exportingCSV={exportingCSV}
-            exportingPDF={exportingPDF}
+            onReset={resetForm}
             onExportCSV={handleExportCSV}
             onExportPDF={handleExportPDF}
-            onReset={resetForm}
+            exportingCSV={exportingCSV}
+            exportingPDF={exportingPDF}
           />
+          <ProcessingTimelineStepper progress={progress} />
+        </div>
+      )}
 
-          {/* Number-First Metric Cards */}
-          <MetricCardsGrid items={items} progress={progress} />
+      {/* Metrics Cards Grid (When results exist) */}
+      {progress && rawResults.length > 0 && (
+        <MetricCardsGrid items={rawResults} progress={progress} />
+      )}
 
-          {/* Dynamic Summary Card Above Table */}
-          {progress.status === 'COMPLETED' && (
-            <BatchSummaryPanel items={items} progress={progress} />
-          )}
+      {/* Dataset Filter & Results Table */}
+      {progress && rawResults.length > 0 && (
+        <div className="space-y-4">
+          {/* Segmented Filter Controls & Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+              <Filter className="w-3.5 h-3.5 text-slate-500 mr-2 flex-shrink-0" />
+              {(['ALL', 'PASS', 'NEEDS_IMPROVEMENT', 'FAIL'] as const).map((filterVal) => (
+                <button
+                  key={filterVal}
+                  onClick={() => setVerdictFilter(filterVal)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex-shrink-0 ${
+                    verdictFilter === filterVal
+                      ? 'bg-amber-500 text-slate-950 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  {filterVal === 'ALL' ? 'All Items' : filterVal.replace('_', ' ')}
+                  <span className="ml-1.5 text-[10px] opacity-75 font-mono">
+                    ({filterVal === 'ALL' ? rawResults.length : rawResults.filter((i: BatchItemEvaluationResult) => i.verdict === filterVal).length})
+                  </span>
+                </button>
+              ))}
+            </div>
 
-          {/* Search & Segmented Filter Control */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Search Input */}
-              <div className="relative w-full sm:w-56">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search questions, responses or QA ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-600 bg-slate-800 px-1 rounded">Ctrl + K</span>
-              </div>
-
-              {/* Segmented Control Bar */}
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-                <Filter className="w-3 h-3 text-slate-500 ml-1.5 mr-0.5" />
-                {(
-                  [
-                    { key: 'ALL', label: 'ALL' },
-                    { key: 'PASS', label: 'PASS' },
-                    { key: 'NEEDS_IMPROVEMENT', label: 'IMPROVEMENT' },
-                    { key: 'FAIL', label: 'FAIL' },
-                  ] as const
-                ).map((f) => (
-                  <button
-                    key={f.key}
-                    onClick={() => setVerdictFilter(f.key)}
-                    className={`px-3 py-1 text-[10px] font-bold rounded transition-all duration-150 ${
-                      verdictFilter === f.key
-                        ? 'bg-amber-500 text-slate-950 shadow-xs'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search questions, answers, reasoning..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60 transition-colors"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-500 hover:text-white rounded transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Results Table */}
-          <div className="glass-card rounded-xl border border-slate-800 overflow-hidden bg-slate-900/40">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs min-w-[900px]">
-                <thead className="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 sticky top-0 z-20 backdrop-blur-md">
+          {/* Results Table with Sticky Headers & Columns */}
+          <div className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950/80 shadow-xl">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-900 border-b border-slate-800 sticky top-0 z-20 shadow-md">
                   <tr>
-                    <th className="px-3.5 py-3 w-16">ID</th>
-                    <th className="px-4 py-3 sticky left-0 bg-slate-950 z-30">Question & AI Response</th>
-                    <th className="px-3 py-3 text-center w-20">Relevance</th>
-                    <th className="px-3 py-3 text-center w-20">Accuracy</th>
-                    <th className="px-3 py-3 text-center w-24">Hallucination</th>
-                    <th className="px-3 py-3 text-center w-24">Completeness</th>
-                    <th className="px-3 py-3 text-center w-20">Overall</th>
-                    <th className="px-4 py-3 text-center w-36">Verdict</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-slate-400 w-16">ID</th>
+                    <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400 sticky left-0 bg-slate-900 border-r border-slate-800 z-30">
+                      QA Pair & Reasoning
+                    </th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-slate-300 w-24">Overall</th>
+                    <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Accuracy</th>
+                    <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Relevance</th>
+                    <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Complete</th>
+                    <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Grounding</th>
+                    <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-slate-300 w-28">Verdict</th>
+                    <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Conf</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                  {filteredItems.length === 0 ? (
+                <tbody className="divide-y divide-slate-800/60 font-sans">
+                  {filteredResults.map((item: BatchItemEvaluationResult) => (
+                    <BatchTableRow
+                      key={item.id}
+                      item={item}
+                      isExpanded={expandedRowId === item.id}
+                      onToggleExpand={() => toggleRowExpanded(item.id)}
+                      searchQuery={debouncedSearchTerm}
+                    />
+                  ))}
+                  {filteredResults.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-slate-500 italic">
-                        {items.length === 0
-                          ? 'Evaluating items in real-time background worker...'
-                          : 'No matching items found for current search or filter.'}
+                      <td colSpan={9} className="px-4 py-12 text-center">
+                        <div className="space-y-3 max-w-md mx-auto">
+                          <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                            <Search className="w-5 h-5" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold text-slate-300">
+                              No evaluations match your search
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {debouncedSearchTerm
+                                ? `No results found for "${debouncedSearchTerm}". Try checking for typos or clearing filters.`
+                                : 'No batch items match the selected filter criteria.'}
+                            </p>
+                          </div>
+                          {(searchTerm || verdictFilter !== 'ALL') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchTerm('')
+                                setVerdictFilter('ALL')
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Clear Search & Filters
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    filteredItems.map((item) => (
-                      <BatchTableRow
-                        key={item.id}
-                        item={item}
-                        isExpanded={expandedRowId === item.id}
-                        onToggleExpand={() => toggleRowExpanded(item.id)}
-                      />
-                    ))
                   )}
                 </tbody>
               </table>

@@ -1,12 +1,19 @@
 import logging
 import asyncio
-from fastapi import FastAPI
+from typing import Annotated
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.api.retrieval import router as retrieval_router
 from app.api.evaluation import router as evaluation_router
 from app.api.batch_evaluation import router as batch_evaluation_router
+from app.api.auth import router as auth_router
 from app.services.pdf_ingestion_service import PDFIngestionService
-from fastapi.middleware.cors import CORSMiddleware
+from app.database.session import engine, get_db
+from app.database.base import Base
+import app.database.models  # Ensures all models are imported before create_all
 
 # --------------------------------------------------
 # Structured Logging Initialization (Phase I)
@@ -70,7 +77,13 @@ background_tasks = set()
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    """FastAPI application startup hook to run background scheduler tasks."""
+    """FastAPI application startup hook to create tables and run background scheduler tasks."""
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database schema initialized successfully via SQLAlchemy Base.metadata.")
+    except Exception as exc:
+        logger.warning(f"Could not connect to database on startup (will verify on endpoint call): {exc}")
+
     task = asyncio.create_task(run_cleanup_scheduler())
     background_tasks.add(task)
     task.add_done_callback(background_tasks.discard)
@@ -96,9 +109,29 @@ def health():
     }
 
 
+@app.get("/db-health")
+def db_health(db: Annotated[Session, Depends(get_db)]):
+    """
+    Database health check endpoint verifying Supabase PostgreSQL connectivity.
+    """
+    try:
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "connected",
+            "database": "Supabase PostgreSQL"
+        }
+    except Exception as exc:
+        logger.exception("Database health check failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database connection failed: {str(exc)}"
+        )
+
+
 # ==============================
 # Register API Routers
 # ==============================
+app.include_router(auth_router)
 app.include_router(retrieval_router)
 app.include_router(evaluation_router)
 app.include_router(batch_evaluation_router)

@@ -1,5 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthenticatedUser
 from app.schemas.retrieval import (
     RetrievalRequest,
     RetrievalResponse,
@@ -17,9 +20,14 @@ retrieval_service = RetrievalService()
 
 @router.post(
     "",
-    response_model=RetrievalResponse
+    responses={
+        500: {"description": "Internal server error during retrieval."}
+    }
 )
-def retrieve_chunks(request: RetrievalRequest) -> RetrievalResponse:
+def retrieve_chunks(
+    request: RetrievalRequest,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+) -> RetrievalResponse:
     """
     Retrieve the Top-K most relevant knowledge chunks
     for a given user query.

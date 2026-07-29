@@ -2,10 +2,8 @@
  * Veridict Batch Evaluation API Service.
  */
 
-import axios from 'axios'
+import { api } from './api'
 import type { BatchProgress } from '../types'
-
-const API_BASE_URL = 'http://localhost:8000'
 
 export async function evaluateBatchCSV(
   csvFile: File,
@@ -17,8 +15,8 @@ export async function evaluateBatchCSV(
     formData.append('evidence_pdf', evidencePdf)
   }
 
-  const response = await axios.post<BatchProgress>(
-    `${API_BASE_URL}/evaluate/batch/csv`,
+  const response = await api.post<BatchProgress>(
+    '/evaluate/batch/csv',
     formData,
     {
       headers: {
@@ -39,8 +37,8 @@ export async function evaluateBatchPDF(
     formData.append('evidence_pdf', evidencePdf)
   }
 
-  const response = await axios.post<BatchProgress>(
-    `${API_BASE_URL}/evaluate/batch/pdf`,
+  const response = await api.post<BatchProgress>(
+    '/evaluate/batch/pdf',
     formData,
     {
       headers: {
@@ -52,14 +50,14 @@ export async function evaluateBatchPDF(
 }
 
 export async function getBatchProgress(batchId: string): Promise<BatchProgress> {
-  const response = await axios.get<BatchProgress>(
-    `${API_BASE_URL}/evaluate/batch/progress/${batchId}`
+  const response = await api.get<BatchProgress>(
+    `/evaluate/batch/progress/${batchId}`
   )
   return response.data
 }
 
 export async function exportBatchCSV(batchId: string): Promise<void> {
-  const response = await axios.get(`${API_BASE_URL}/evaluate/batch/export-csv/${batchId}`, {
+  const response = await api.get(`/evaluate/batch/export-csv/${batchId}`, {
     responseType: 'blob',
   })
   const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }))
@@ -73,7 +71,7 @@ export async function exportBatchCSV(batchId: string): Promise<void> {
 }
 
 export async function exportBatchPDF(batchId: string): Promise<void> {
-  const response = await axios.get(`${API_BASE_URL}/evaluate/batch/export-pdf/${batchId}`, {
+  const response = await api.get(`/evaluate/batch/export-pdf/${batchId}`, {
     responseType: 'blob',
   })
   const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))

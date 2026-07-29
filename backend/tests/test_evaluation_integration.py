@@ -21,6 +21,10 @@ from app.schemas.judge import (
 from app.core.exceptions import JudgeLLMUnavailableError, JudgeLLMConfigurationError
 
 
+from app.auth.dependencies import get_current_user
+from app.auth.schemas import AuthenticatedUser
+
+
 @pytest.fixture
 def client():
     """Create a TestClient for FastAPI app."""
@@ -30,6 +34,11 @@ def client():
 @pytest.fixture(autouse=True)
 def setup_mocks():
     """Directly override dependencies on the pre-instantiated evaluation_service in the router."""
+    app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(
+        id="00000000-0000-0000-0000-000000000000",
+        email="test@veridict.ai",
+        provider="email",
+    )
     from app.api.evaluation import evaluation_service
 
     # Save original attributes
@@ -108,6 +117,7 @@ def setup_mocks():
     evaluation_service.hallucination_judge = orig_hallucination
     evaluation_service.completeness_judge = orig_completeness
     evaluation_service.verdict_agent = orig_verdict
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 # ──────────────────────────────────────────────

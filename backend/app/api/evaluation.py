@@ -32,6 +32,14 @@ pdf_ingestion_service = PDFIngestionService()
 pdf_report_generator = PDFReportGenerator()
 
 
+from app.database.session import get_db
+from sqlalchemy.orm import Session
+from app.history.service import HistoryService
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 @router.post(
     "",
     response_model=EvaluationResponse,
@@ -46,6 +54,7 @@ async def evaluate_response(
     reference_answer: Annotated[str | None, Form()] = None,
     pdf_file: Annotated[UploadFile | None, File()] = None,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+    db: Annotated[Session, Depends(get_db)] = None,
 ):
     """
     Prepare the evaluation payload.
@@ -57,6 +66,7 @@ async def evaluate_response(
     - Optional PDF document
 
     The uploaded PDF (if provided) will be ingested asynchronously in the background.
+    Automatically persists completed evaluation to user history transparently.
     """
     try:
         request = EvaluationRequest(
@@ -65,11 +75,35 @@ async def evaluate_response(
             reference_answer=reference_answer
         )
 
-        return await evaluation_service.evaluate(
+        response = await evaluation_service.evaluate(
             request=request,
             pdf_file=pdf_file,
             background_tasks=background_tasks
         )
+
+        # Transparent automatic persistence for authenticated user
+        if user and user.id and db:
+            try:
+                eval_payload = response.model_dump() if hasattr(response, "model_dump") else response.dict()
+                verdict_data = eval_payload.get("verdict_evaluation") or {}
+                HistoryService.create_evaluation(
+                    db=db,
+                    user_id=user.id,
+                    data=eval_payload,
+                    source_type="SINGLE",
+                )
+                score = verdict_data.get("overall_score", 0.0) if isinstance(verdict_data, dict) else 0.0
+                verdict = verdict_data.get("verdict", "N/A") if isinstance(verdict_data, dict) else "N/A"
+                logger.info(
+                    "Evaluation persisted | user=%s | score=%.2f | verdict=%s",
+                    user.id,
+                    score,
+                    verdict,
+                )
+            except Exception as persist_err:
+                logger.warning("History persistence failed: %s", persist_err)
+
+        return response
 
     except Exception as e:
         raise HTTPException(

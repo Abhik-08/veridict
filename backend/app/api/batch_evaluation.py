@@ -25,6 +25,9 @@ from app.services.batch_parsers import CSVBatchParser, PDFBatchParser
 from app.services.batch_report_generator import BatchReportGenerator
 from app.services.pdf_ingestion_service import PDFIngestionService
 
+from app.database.session import get_db
+from sqlalchemy.orm import Session
+
 router = APIRouter(prefix="/evaluate/batch", tags=["Batch Evaluation"])
 batch_service = BatchEvaluationService()
 ingestion_service = PDFIngestionService()
@@ -40,6 +43,7 @@ async def evaluate_batch_csv(
     evidence_pdf: Annotated[UploadFile | None, File(description="Optional evidence context PDF")] = None,
     background_tasks: BackgroundTasks = BackgroundTasks(),
     user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+    db: Annotated[Session, Depends(get_db)] = None,
 ) -> BatchProgress:
     """Parse CSV upload, resolve optional evidence PDF, and launch background batch evaluation."""
     if not file.filename or not file.filename.lower().endswith(".csv"):
@@ -72,17 +76,24 @@ async def evaluate_batch_csv(
                 detail=f"Evidence PDF processing failed: {str(exc)}",
             )
 
+    user_id = user.id if user else None
     job = batch_service.create_job(
         filename=file.filename,
         file_type="CSV",
         items=items,
+        user_id=user_id,
+        db=db,
     )
+    db_batch_id = getattr(job, "db_batch_id", None)
 
     background_tasks.add_task(
         batch_service.process_batch_job,
         batch_id=job.batch_id,
         items=items,
         pdf_namespace=pdf_namespace,
+        user_id=user_id,
+        db=db,
+        db_batch_id=db_batch_id,
     )
 
     return job
@@ -98,6 +109,7 @@ async def evaluate_batch_pdf(
     evidence_pdf: Annotated[UploadFile | None, File(description="Optional evidence context PDF")] = None,
     background_tasks: BackgroundTasks = BackgroundTasks(),
     user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
+    db: Annotated[Session, Depends(get_db)] = None,
 ) -> BatchProgress:
     """Parse Digital QA PDF upload, resolve optional evidence PDF, and launch background batch evaluation."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -129,17 +141,24 @@ async def evaluate_batch_pdf(
                 detail=f"Evidence PDF processing failed: {str(exc)}",
             )
 
+    user_id = user.id if user else None
     job = batch_service.create_job(
         filename=file.filename,
         file_type="PDF",
         items=items,
+        user_id=user_id,
+        db=db,
     )
+    db_batch_id = getattr(job, "db_batch_id", None)
 
     background_tasks.add_task(
         batch_service.process_batch_job,
         batch_id=job.batch_id,
         items=items,
         pdf_namespace=pdf_namespace,
+        user_id=user_id,
+        db=db,
+        db_batch_id=db_batch_id,
     )
 
     return job

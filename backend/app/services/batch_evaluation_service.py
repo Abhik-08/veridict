@@ -40,13 +40,35 @@ class BatchEvaluationService:
     def get_progress(cls, batch_id: str) -> BatchProgress | None:
         return cls._jobs_store.get(batch_id)
 
-    def create_job(self, filename: str, file_type: str, items: list[BatchQAPairInput]) -> BatchProgress:
+    def create_job(
+        self,
+        filename: str,
+        file_type: str,
+        items: list[BatchQAPairInput],
+        user_id: Any | None = None,
+        db: Any | None = None,
+    ) -> BatchProgress:
         # Pre-evaluation Input Validation
         validated_items = BatchInputValidator.validate(items)
 
         batch_id = f"BATCH-{uuid.uuid4().hex[:8]}"
         total_rows = len(validated_items)
         total_batches = (total_rows + settings.BATCH_SIZE - 1) // settings.BATCH_SIZE
+
+        # Persist DB BatchJob record if authenticated user and db session provided
+        db_batch_id = None
+        if user_id and db:
+            try:
+                from app.history.service import HistoryService
+                db_job = HistoryService.create_batch_job(
+                    db=db,
+                    user_id=user_id,
+                    data={"filename": filename, "total_items": total_rows, "status": "PROCESSING"},
+                )
+                db_batch_id = db_job.id
+                logger.info("Batch job created | job_id=%s | total_items=%d", db_batch_id, total_rows)
+            except Exception as batch_err:
+                logger.warning("History persistence failed for batch job creation: %s", batch_err)
 
         progress = BatchProgress(
             batch_id=batch_id,
@@ -61,15 +83,103 @@ class BatchEvaluationService:
             failed_count=0,
             status="PENDING",
             created_at=datetime.now().isoformat(),
+            db_batch_id=db_batch_id,
         )
         self._jobs_store[batch_id] = progress
         return progress
+
+    def _persist_single_item(
+        self,
+        item_result: BatchItemEvaluationResult,
+        batch_id: str,
+        progress: BatchProgress,
+        user_id: Any | None,
+        db: Any | None,
+        db_batch_id: Any | None,
+    ) -> None:
+        """Transparently persists completed batch item result to user history."""
+        if not (user_id and db and item_result.status == "COMPLETED"):
+            return
+        try:
+            from app.history.service import HistoryService
+            item_dict = item_result.model_dump() if hasattr(item_result, "model_dump") else item_result.dict()
+            HistoryService.create_evaluation(
+                db=db,
+                user_id=user_id,
+                data=item_dict,
+                source_type="BATCH",
+                batch_job_id=db_batch_id,
+            )
+            logger.info(
+                "Batch item evaluation persisted | batch=%s | completed=%d/%d",
+                batch_id,
+                progress.completed_count,
+                progress.total_rows,
+            )
+        except Exception as item_persist_exc:
+            logger.warning("History persistence failed for batch item: %s", item_persist_exc)
+
+    def _process_single_chunk(
+        self,
+        chunk: list[dict[str, Any]],
+        batch_num: int,
+        total_chunks: int,
+        batch_id: str,
+        progress: BatchProgress,
+        user_id: Any | None,
+        db: Any | None,
+        db_batch_id: Any | None,
+    ) -> None:
+        """Processes a single batch chunk of items."""
+        progress.current_batch = batch_num
+        self.rate_controller.acquire_slot_sync()
+        logger.info(f"Processing Batch {batch_num}/{total_chunks} containing {len(chunk)} items...")
+
+        try:
+            eval_results_list = self.batch_llm_service.evaluate_batch(chunk)
+            progress.gemini_call_count += 1
+            eval_map = {res["id"]: res for res in eval_results_list if "id" in res}
+
+            for item_data in chunk:
+                item_id = item_data["id"]
+                res_data = eval_map.get(item_id, {})
+
+                item_result = self._calculate_python_verdict(item_data, res_data)
+                progress.items.append(item_result)
+
+                if item_result.status == "COMPLETED":
+                    progress.completed_count += 1
+                else:
+                    progress.failed_count += 1
+
+                self._persist_single_item(item_result, batch_id, progress, user_id, db, db_batch_id)
+
+        except Exception as exc:
+            logger.exception(f"Batch {batch_num} failed completely: {str(exc)}")
+            progress.retry_count += 1
+            for item_data in chunk:
+                failed_item = BatchItemEvaluationResult(
+                    id=item_data["id"],
+                    row_index=item_data["row_index"],
+                    question=item_data["question"],
+                    ai_response=item_data["ai_response"],
+                    reference_answer=item_data.get("reference_answer"),
+                    evidence_text=item_data.get("evidence_text"),
+                    evidence_source=item_data.get("evidence_source", "NO_EVIDENCE"),
+                    status="FAILED",
+                    error_message=f"Batch processing error: {str(exc)}",
+                )
+                progress.items.append(failed_item)
+                progress.failed_count += 1
 
     def process_batch_job(
         self,
         batch_id: str,
         items: list[BatchQAPairInput],
         pdf_namespace: str | None = None,
+        user_id: Any | None = None,
+        db: Any | None = None,
+        db_batch_id: Any | None = None,
     ) -> None:
         """Background task function that processes all batches sequentially."""
         progress = self._jobs_store.get(batch_id)
@@ -104,45 +214,9 @@ class BatchEvaluationService:
             ]
 
             for batch_num, chunk in enumerate(chunks, start=1):
-                progress.current_batch = batch_num
-                self.rate_controller.acquire_slot_sync()
-                logger.info(f"Processing Batch {batch_num}/{len(chunks)} containing {len(chunk)} items...")
-
-                try:
-                    eval_results_list = self.batch_llm_service.evaluate_batch(chunk)
-                    progress.gemini_call_count += 1
-                    eval_map = {res["id"]: res for res in eval_results_list if "id" in res}
-
-                    for item_data in chunk:
-                        item_id = item_data["id"]
-                        res_data = eval_map.get(item_id, {})
-
-                        item_result = self._calculate_python_verdict(item_data, res_data)
-                        progress.items.append(item_result)
-
-                        if item_result.status == "COMPLETED":
-                            progress.completed_count += 1
-                        else:
-                            progress.failed_count += 1
-
-                except Exception as exc:
-                    logger.exception(f"Batch {batch_num} failed completely: {str(exc)}")
-                    progress.retry_count += 1
-                    for item_data in chunk:
-                        failed_item = BatchItemEvaluationResult(
-                            id=item_data["id"],
-                            row_index=item_data["row_index"],
-                            question=item_data["question"],
-                            ai_response=item_data["ai_response"],
-                            reference_answer=item_data.get("reference_answer"),
-                            evidence_text=item_data.get("evidence_text"),
-                            evidence_source=item_data.get("evidence_source", "NO_EVIDENCE"),
-                            status="FAILED",
-                            error_message=f"Batch processing error: {str(exc)}",
-                        )
-                        progress.items.append(failed_item)
-                        progress.failed_count += 1
-
+                self._process_single_chunk(
+                    chunk, batch_num, len(chunks), batch_id, progress, user_id, db, db_batch_id
+                )
                 progress.processed_rows = len(progress.items)
                 progress.remaining_rows = progress.total_rows - progress.processed_rows
 

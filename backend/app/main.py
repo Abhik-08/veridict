@@ -1,7 +1,8 @@
 import logging
 import asyncio
 from typing import Annotated
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -10,10 +11,13 @@ from app.api.retrieval import router as retrieval_router
 from app.api.evaluation import router as evaluation_router
 from app.api.batch_evaluation import router as batch_evaluation_router
 from app.api.auth import router as auth_router
+from app.history.router import router as history_router
 from app.services.pdf_ingestion_service import PDFIngestionService
 from app.database.session import engine, get_db
 from app.database.base import Base
 import app.database.models  # Ensures all models are imported before create_all
+from app.common.exceptions.base import BaseAppException
+from app.common.models.responses import ErrorResponse
 
 # --------------------------------------------------
 # Structured Logging Initialization (Phase I)
@@ -27,7 +31,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Veridict API",
     version="1.0.0",
-    description="AI Response Quality Evaluator Backend"
+    description="Enterprise AI Response Quality & Hallucination Evaluator API"
 )
 
 app.add_middleware(
@@ -41,14 +45,27 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(BaseAppException)
+async def base_app_exception_handler(request: Request, exc: BaseAppException):
+    """Global exception handler converting BaseAppException into structured ErrorResponse JSON."""
+    error_payload = ErrorResponse(
+        error=exc.error_code,
+        message=exc.message,
+        details=exc.details,
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_payload.model_dump(),
+    )
+
+
 # --------------------------------------------------
-# Temporary Namespace Expiration Scheduler (Phase F)
+# Namespace Expiration Scheduler (PDF Ingestion Purge)
 # --------------------------------------------------
 async def run_cleanup_scheduler() -> None:
     """Hourly background loop triggering purge of expired namespaces."""
     logger.info("Initializing PDF Namespace Expiration Scheduler (Purge TTL: %sh)", settings_ttl_hours())
     
-    # Instantiate inside task to ensure loop compatibility
     ingestion_service = PDFIngestionService()
     
     while True:
@@ -59,7 +76,6 @@ async def run_cleanup_scheduler() -> None:
         except Exception:
             logger.exception("Error in scheduled cleanup loop")
         
-        # Sleep for 1 hour (3600 seconds)
         await asyncio.sleep(3600)
 
 
@@ -89,31 +105,25 @@ async def startup_event() -> None:
     task.add_done_callback(background_tasks.discard)
 
 
-@app.get("/")
+@app.get("/", summary="Root Status", description="Returns API operational greeting.")
 def root():
-    """
-    Root endpoint.
-    """
+    """Root endpoint greeting."""
     return {
         "message": "🚀 Veridict Backend Running"
     }
 
 
-@app.get("/health")
+@app.get("/health", summary="Health Check", description="Returns system health status.")
 def health():
-    """
-    Health check endpoint.
-    """
+    """Health check endpoint."""
     return {
         "status": "healthy"
     }
 
 
-@app.get("/db-health")
+@app.get("/db-health", summary="Database Health Check", description="Verifies PostgreSQL database connectivity.")
 def db_health(db: Annotated[Session, Depends(get_db)]):
-    """
-    Database health check endpoint verifying Supabase PostgreSQL connectivity.
-    """
+    """Database health check endpoint verifying PostgreSQL connectivity."""
     try:
         db.execute(text("SELECT 1"))
         return {
@@ -135,3 +145,4 @@ app.include_router(auth_router)
 app.include_router(retrieval_router)
 app.include_router(evaluation_router)
 app.include_router(batch_evaluation_router)
+app.include_router(history_router)

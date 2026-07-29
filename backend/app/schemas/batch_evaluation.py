@@ -64,3 +64,4 @@ class BatchProgress(BaseModel):
     retry_count: int = 0
     gemini_call_count: int = 0
     statistics: dict[str, Any] | None = None
+    db_batch_id: Any | None = None

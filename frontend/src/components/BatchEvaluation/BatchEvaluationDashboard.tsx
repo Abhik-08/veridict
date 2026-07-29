@@ -525,7 +525,6 @@ const BatchUploadForm: React.FC<{
   onSetEvidencePdf: (f: File | null) => void
   onSubmit: (e: React.SyntheticEvent) => void
   loading: boolean
-  onToast?: (type: 'success' | 'error' | 'info' | 'warning', title: string, message?: string) => void
 }> = ({
   mode,
   onModeChange,
@@ -535,7 +534,6 @@ const BatchUploadForm: React.FC<{
   onSetEvidencePdf,
   onSubmit,
   loading,
-  onToast,
 }) => {
   return (
     <form onSubmit={onSubmit} className="glass-card p-5 rounded-xl border border-slate-800 space-y-4 bg-slate-900/40">
@@ -563,7 +561,6 @@ const BatchUploadForm: React.FC<{
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null
                   onSetBatchFile(f)
-                  if (f) onToast?.('info', 'File Selected', f.name)
                 }}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
@@ -610,7 +607,6 @@ const BatchUploadForm: React.FC<{
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null
                   onSetEvidencePdf(f)
-                  if (f) onToast?.('info', 'Context PDF Selected', f.name)
                 }}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
@@ -706,9 +702,7 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
     })
     if (updated.status === 'COMPLETED' || updated.status === 'FAILED') {
       if (pollingRef.current) clearInterval(pollingRef.current)
-      if (updated.status === 'COMPLETED') {
-        onToast?.('success', 'Batch Evaluation Complete', `Successfully evaluated ${updated.total_rows} QA pairs.`)
-      } else {
+      if (updated.status === 'FAILED') {
         onToast?.('error', 'Batch Evaluation Failed', updated.error || 'One or more errors occurred.')
       }
     }
@@ -744,7 +738,6 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
     setLoading(true)
     setError(null)
     updateBatchState({ batchProgress: null, batchResults: [] })
-    onToast?.('info', 'Submitting Batch Job', `Processing ${batchFile.name}...`)
 
     try {
       let initialProgress: BatchProgress
@@ -760,7 +753,6 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
         batchResults: initialItems,
         batchFileMetadata: { name: batchFile.name, size: batchFile.size, type: batchFile.type },
       })
-      onToast?.('info', 'Batch Job Created', `ID: ${initialProgress.batch_id} — Evaluating in background...`)
     } catch (err: any) {
       const msg = err.response?.data?.detail || err.message || 'Batch evaluation submission failed.'
       setError(msg)
@@ -773,10 +765,8 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
   const handleExportCSV = async () => {
     if (!progress || exportingCSV) return
     setExportingCSV(true)
-    onToast?.('info', 'Generating CSV Export...')
     try {
       await exportBatchCSV(progress.batch_id)
-      onToast?.('success', 'CSV Exported Successfully')
     } catch (err: any) {
       const msg = err.message || 'Unknown error'
       onToast?.('error', 'CSV Export Failed', msg)
@@ -788,10 +778,8 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
   const handleExportPDF = async () => {
     if (!progress || exportingPDF) return
     setExportingPDF(true)
-    onToast?.('info', 'Generating PDF Report...')
     try {
       await exportBatchPDF(progress.batch_id)
-      onToast?.('success', 'PDF Report Exported Successfully')
     } catch (err: any) {
       const msg = err.message || 'Unknown error'
       onToast?.('error', 'PDF Export Failed', msg)
@@ -805,7 +793,6 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
     setEvidencePdf(null)
     setError(null)
     clearBatchState()
-    onToast?.('info', 'Batch Form Cleared')
   }
 
   const toggleRowExpanded = (id: string) => {
@@ -876,7 +863,6 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
           onSetEvidencePdf={setEvidencePdf}
           onSubmit={handleSubmit}
           loading={loading}
-          onToast={onToast}
         />
       ) : (
         <div className="space-y-4">

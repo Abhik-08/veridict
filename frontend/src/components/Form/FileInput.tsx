@@ -9,6 +9,7 @@ interface FileInputProps {
   readonly onChange: (file: File | null) => void
   readonly accept?: string
   readonly maxSizeMB?: number
+  readonly disabled?: boolean
 }
 
 export function FileInput({
@@ -18,11 +19,13 @@ export function FileInput({
   onChange,
   accept = 'application/pdf',
   maxSizeMB = 10,
+  disabled = false,
 }: FileInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const handleDragOver = (e: React.DragEvent) => {
+    if (disabled) return
     e.preventDefault()
     setIsDragging(true)
   }
@@ -32,6 +35,7 @@ export function FileInput({
   }
 
   const processFile = (selectedFile: File) => {
+    if (disabled) return
     if (selectedFile.type !== accept) {
       alert(`Only ${accept.replace('application/', '').toUpperCase()} files are supported.`)
       return
@@ -44,6 +48,7 @@ export function FileInput({
   }
 
   const handleDrop = (e: React.DragEvent) => {
+    if (disabled) return
     e.preventDefault()
     setIsDragging(false)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -52,12 +57,14 @@ export function FileInput({
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return
     if (e.target.files && e.target.files.length > 0) {
       processFile(e.target.files[0])
     }
   }
 
   const removeFile = () => {
+    if (disabled) return
     onChange(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -79,18 +86,20 @@ export function FileInput({
         ref={fileInputRef}
         onChange={handleFileChange}
         accept={accept}
+        disabled={disabled}
         className="hidden"
       />
 
       {file === null ? (
         <button
           type="button"
+          disabled={disabled}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !disabled && fileInputRef.current?.click()}
           className={cn(
-            "w-full flex flex-col items-center justify-center border border-dashed rounded-xl p-8 cursor-pointer transition-all duration-300 bg-background/20 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-glow-sm",
+            "w-full flex flex-col items-center justify-center border border-dashed rounded-xl p-8 cursor-pointer transition-all duration-300 bg-background/20 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary focus:shadow-glow-sm disabled:opacity-50 disabled:cursor-not-allowed",
             isDragging 
               ? "border-primary bg-primary-muted/10 shadow-glow-sm" 
               : "border-border hover:border-border-hover hover:bg-background/30"
@@ -124,7 +133,8 @@ export function FileInput({
           <button
             type="button"
             onClick={removeFile}
-            className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors"
+            disabled={disabled}
+            className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors disabled:opacity-50"
             aria-label="Remove file"
           >
             <X size={16} />
@@ -134,4 +144,3 @@ export function FileInput({
     </div>
   )
 }
-

@@ -6,11 +6,12 @@ The Batch Evaluation module enables bulk assessment of AI-generated responses ac
 
 ## Key Capabilities
 
-- **CSV Dataset Ingestion**: Automatic parsing and normalization of dataset CSV files (`Question`, `AI Response` columns).
+- **CSV Dataset Ingestion**: Automatic parsing and normalization of dataset CSV files (`Question`, `AI Response`, `Reference Answer` columns).
 - **Digital QA PDF Parsing**: Automated extraction of Question/Answer blocks from structured digital PDF documents.
 - **Evidence Context Binding**: Optional binding of a reference PDF document to provide evidence for all batch rows.
 - **Asynchronous Batch Execution**: Non-blocking background worker execution with progress reporting.
 - **Rate Limit & Concurrency Control**: Automatic rate-limiting controller regulating inter-batch delays to respect Gemini API quotas.
+- **Automatic History Persistence**: Persists batch job records, dataset counters, and individual row evaluation payloads to Supabase PostgreSQL.
 - **Aggregate Analytics**: Computes pass rates, dimension score averages, Gemini API call metrics, and execution timing.
 - **Dual Export Formats**: Export full dataset evaluations as CSV or executive summary PDF reports.
 
@@ -20,10 +21,13 @@ The Batch Evaluation module enables bulk assessment of AI-generated responses ac
 
 ```
 [ Upload CSV / PDF ] ──► [ Parser Abstraction ] ──► [ Input Validator ]
-                                                            │
+                                                             │
 [ Real-Time Progress ] ◄── [ Statistics Service ] ◄── [ Rate Controller ]
-                                                            │
-[ CSV / PDF Exporters ] ◄── [ Response Validator ] ◄── [ LLM Batch Worker ]
+                                                             │
+[ History Persistence ] ◄── [ Response Validator ] ◄── [ LLM Batch Worker ]
+          │
+          ▼
+[ CSV / PDF Exporters ]
 ```
 
 ---

@@ -13,7 +13,7 @@ import { ToastContainer, type ToastMessage } from '@/components/Toast'
 import { useMounted } from '@/hooks'
 import { useEvaluation } from '@/context/EvaluationContext'
 import { cn } from '@/utils'
-import { ArrowRight, RefreshCw, Loader2, UserCheck, Layers, Upload, Play, BarChart2, Download } from 'lucide-react'
+import { ArrowRight, RefreshCw, Loader2, UserCheck, Layers, Upload, Play, BarChart2, Download, Bot } from 'lucide-react'
 import { evaluateResponse } from '@/services/evaluationService'
 
 export function HomePage() {
@@ -65,7 +65,6 @@ export function HomePage() {
     if (Object.keys(newErrors).length > 0) return
 
     setIsEvaluating(true)
-    addToast('info', 'Evaluation Started', 'Submitting QA pair to multi-agent pipeline...')
 
     try {
       const result = await evaluateResponse({
@@ -76,13 +75,10 @@ export function HomePage() {
       })
 
       updateSingleState({ evaluationResult: result })
-
-      const score = result.overall_score ?? result.verdict_evaluation?.overall_score ?? 0
-      const verdict = result.verdict ?? result.verdict_evaluation?.verdict ?? 'COMPLETED'
-      addToast('success', 'Evaluation Complete', `Verdict: ${verdict} (${typeof score === 'number' ? score.toFixed(2) : score})`)
+      // No success toast — evaluation results display directly inline below form
     } catch (error: any) {
       console.error('Evaluation failed:', error)
-      addToast('error', 'Evaluation Failed', error.message || 'Could not connect to backend server.')
+      addToast('error', 'Evaluation Failed', error.message || 'Evaluation failed. Please try again.')
     } finally {
       setIsEvaluating(false)
     }
@@ -93,7 +89,6 @@ export function HomePage() {
     setFile(null)
     setErrors({})
     clearSingleState()
-    addToast('info', 'Form Cleared')
   }
 
   // Workflow steps
@@ -119,50 +114,51 @@ export function HomePage() {
           <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white">
             AI Response Quality Evaluator
           </h1>
-
-          <p className="mt-1 text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed font-normal">
-            Multi-agent evaluation engine for AI responses grounded in RAG evidence.
+          <p className="mt-2 text-sm text-slate-300 max-w-xl leading-relaxed">
+            Multi-agent evaluation platform detecting hallucinations, measuring factual accuracy, and verifying RAG compliance.
           </p>
 
-          {/* Engine Mode Switcher Bar */}
-          <div className="mt-3.5 flex items-center gap-1.5 p-1 rounded-xl bg-slate-900/90 border border-slate-800 shadow-md">
+          {/* Engine Mode Toggle Bar */}
+          <div className="mt-4 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-1 shadow-xl">
             <button
+              type="button"
               onClick={() => setEngineMode('single')}
               className={cn(
-                'flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium text-xs transition-all duration-150',
+                'flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer',
                 engineMode === 'single'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-amber-500 text-slate-950 shadow-md scale-105'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               )}
             >
-              <UserCheck size={14} />
-              Single Evaluation
+              <UserCheck className="w-4 h-4" />
+              <span>Single Prompt Evaluator</span>
             </button>
             <button
+              type="button"
               onClick={() => setEngineMode('batch')}
               className={cn(
-                'flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium text-xs transition-all duration-150',
+                'flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer',
                 engineMode === 'batch'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-amber-500 text-slate-950 shadow-md scale-105'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               )}
             >
-              <Layers size={14} />
-              Batch Evaluation
+              <Layers className="w-4 h-4" />
+              <span>Batch Dataset Evaluator</span>
             </button>
           </div>
 
-          {/* Workflow Stepper Bar */}
-          <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-slate-500 font-medium opacity-80">
-            {steps.map((step, idx) => {
-              const IconComp = step.icon
+          {/* Workflow Steps Indicator Bar */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-3xl px-2">
+            {steps.map((step) => {
+              const Icon = step.icon
               return (
-                <div key={step.label} className="flex items-center gap-1.5">
-                  <span className="flex items-center gap-1">
-                    <IconComp size={11} className="text-slate-400" />
-                    <span>{step.num} {step.label}</span>
-                  </span>
-                  {idx < steps.length - 1 && <span className="text-slate-600 font-sans">→</span>}
+                <div
+                  key={step.num}
+                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm text-[11px] font-semibold text-slate-300 shadow-sm"
+                >
+                  <Icon className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{step.label}</span>
                 </div>
               )
             })}
@@ -170,30 +166,32 @@ export function HomePage() {
         </SectionContainer>
       </section>
 
-      {/* Engine 1: Single Evaluation Pipeline */}
+      {/* Engine 1: Single Prompt Evaluation Form */}
       {engineMode === 'single' && (
         <>
-          <section className="relative pb-6 w-full z-10">
+          <section className="relative w-full z-10 pt-2">
             <SectionContainer width="narrow">
-              <GlassCard
-                padding="lg"
-                static
-                className="relative overflow-hidden border border-border/80 shadow-glow-sm"
-              >
-                <div className="mb-4">
-                  <h2 className="font-display text-lg font-bold text-text-primary">
-                    Single Response Evaluation
-                  </h2>
-                  <p className="text-xs text-muted mt-0.5">
-                    Submit a prompt, AI response, and optional reference material to evaluate quality across 4 dimensions.
-                  </p>
+              <GlassCard padding="lg" static className="border border-border/80 shadow-glow-sm">
+                <div className="flex items-center justify-between border-b border-border/80 pb-4 mb-6">
+                  <div>
+                    <h2 className="font-display text-base font-bold text-text-primary">
+                      Evaluation Request
+                    </h2>
+                    <p className="text-xs text-muted mt-0.5">
+                      Submit AI output and optional context for multi-agent evaluation
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-medium text-primary px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                    Active Session
+                  </span>
                 </div>
 
-                <form onSubmit={handleEvaluate} className="space-y-4">
+                <form onSubmit={handleEvaluate} className="flex flex-col gap-5">
                   <TextArea
                     id="question"
                     label="Question / Prompt"
                     required
+                    rows={3}
                     value={singleState.question}
                     onChange={(e) => {
                       updateSingleState({ question: e.target.value })
@@ -251,6 +249,7 @@ export function HomePage() {
                       })
                     }}
                     maxSizeMB={10}
+                    disabled={isEvaluating}
                   />
 
                   {singleState.fileMetadata && !file && (
@@ -259,7 +258,8 @@ export function HomePage() {
                       <button
                         type="button"
                         onClick={() => updateSingleState({ fileMetadata: null })}
-                        className="text-slate-400 hover:text-white underline ml-2"
+                        disabled={isEvaluating}
+                        className="text-slate-400 hover:text-white underline ml-2 disabled:opacity-50"
                       >
                         Remove
                       </button>
@@ -292,7 +292,7 @@ export function HomePage() {
                       type="button"
                       onClick={handleReset}
                       disabled={isEvaluating}
-                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 border border-border hover:border-border-hover rounded-full text-xs font-medium text-muted hover:text-text-primary transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none"
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 border border-border hover:border-border-hover rounded-full text-xs font-medium text-muted hover:text-text-primary transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                     >
                       <RefreshCw
                         size={13}
@@ -306,7 +306,51 @@ export function HomePage() {
             </SectionContainer>
           </section>
 
-          {singleState.evaluationResult !== null && (
+          {/* Inline Loading / Progress Panel */}
+          {isEvaluating && (
+            <SectionContainer width="narrow" className="mt-4 w-full animate-fade-in-up">
+              <GlassCard padding="lg" static className="border border-amber-500/30 bg-slate-950/80 backdrop-blur-md flex flex-col gap-4 shadow-xl">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <Bot className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                      Evaluating Response...
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Running multi-agent assessment pipeline
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-xs text-slate-300 font-medium pl-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <span>Retrieving reference knowledge & RAG evidence</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span>Running relevance analysis</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span>Running accuracy analysis</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span>Checking hallucinations</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span>Generating final verdict</span>
+                  </div>
+                </div>
+              </GlassCard>
+            </SectionContainer>
+          )}
+
+          {singleState.evaluationResult !== null && !isEvaluating && (
             <EvaluationResult result={singleState.evaluationResult} />
           )}
         </>

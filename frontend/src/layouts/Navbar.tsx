@@ -1,13 +1,19 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import logoSrc from '@/assets/logo.png'
 import { useAuth } from '@/context/useAuth'
-import { LogOut, User as UserIcon } from 'lucide-react'
+import { LogOut, User as UserIcon, LayoutDashboard, History, Sparkles } from 'lucide-react'
 
 export function Navbar() {
   const { user, profile, logout } = useAuth()
+  const location = useLocation()
 
   const displayName = profile?.full_name || profile?.email || user?.email || 'User'
   const avatarUrl = profile?.avatar_url
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/' || location.pathname === '/dashboard'
+    return location.pathname === path
+  }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
@@ -31,6 +37,47 @@ export function Navbar() {
             </span>
           </div>
         </Link>
+
+        {/* Center: Navigation Links */}
+        {user && (
+          <div className="hidden md:flex items-center gap-1.5 p-1 rounded-xl bg-slate-900/90 border border-slate-800 shadow-md">
+            <Link
+              to="/"
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium text-xs transition-all ${
+                isActive('/')
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <LayoutDashboard size={14} />
+              Dashboard
+            </Link>
+
+            <Link
+              to="/evaluator"
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium text-xs transition-all ${
+                isActive('/evaluator')
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Sparkles size={14} />
+              Evaluator
+            </Link>
+
+            <Link
+              to="/history"
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium text-xs transition-all ${
+                isActive('/history')
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <History size={14} />
+              History
+            </Link>
+          </div>
+        )}
 
         {/* Right side: Auth Controls */}
         <div className="flex items-center gap-3">

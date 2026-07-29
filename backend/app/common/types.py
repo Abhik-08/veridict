@@ -3,7 +3,7 @@ Shared Types Module for Veridict Common Infrastructure.
 Defines reusable type aliases, tuples, and enums across all backend packages.
 """
 from enum import Enum
-from typing import Annotated, Optional, Tuple, TypeAlias, Union
+from typing import Annotated, Optional, Tuple, TypeAlias
 from uuid import UUID
 from pydantic import Field
 

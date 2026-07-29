@@ -22,7 +22,10 @@ Veridict uses a Retrieval-Augmented Generation (RAG) architecture to ground AI r
      [ Semantic Similarity Search ]
                  │
                  ▼
-[ Retrieved Evidence Context → Judges ]
+[ Retrieved Evidence Context → Judge Agents ]
+                 │
+                 ▼
+[ Automatic Evaluation History Persistence ]
 ```
 
 ---
@@ -47,3 +50,7 @@ Veridict uses a Retrieval-Augmented Generation (RAG) architecture to ground AI r
    - MD5 fingerprint caching to avoid re-embedding identical PDF documents.
    - Background ingestion with real-time status monitoring.
    - Scheduled hourly cleanup task purging expired temporary namespaces (TTL: 24h).
+
+6. **Evidence Binding & Evaluation History**:
+   - Binds retrieved RAG evidence passages directly into judge prompts (`AccuracyJudge`, `HallucinationJudge`).
+   - Automatically serializes evidence payloads to Supabase PostgreSQL database via `EvaluationCreatedEvent`.

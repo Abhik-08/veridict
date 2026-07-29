@@ -1,6 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { RootLayout } from '@/layouts'
-import { HomePage, Login, Register, ForgotPassword } from '@/pages'
+import { HomePage, DashboardPage, HistoryPage, Login, Register, ForgotPassword } from '@/pages'
 import { ProtectedRoute } from '@/components/Auth/ProtectedRoute'
 
 const router = createBrowserRouter([
@@ -13,7 +13,19 @@ const router = createBrowserRouter([
     children: [
       {
         path: '/',
+        element: <DashboardPage />,
+      },
+      {
+        path: '/dashboard',
+        element: <DashboardPage />,
+      },
+      {
+        path: '/evaluator',
         element: <HomePage />,
+      },
+      {
+        path: '/history',
+        element: <HistoryPage />,
       },
     ],
   },

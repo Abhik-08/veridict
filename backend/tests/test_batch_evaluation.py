@@ -57,10 +57,164 @@ class TestCSVBatchParser:
 
 
 class TestPDFBatchParser:
+    @staticmethod
+    def _create_simple_pdf(text: str) -> bytes:
+        import io
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=letter)
+        styles = getSampleStyleSheet()
+        story = []
+        for line in text.splitlines():
+            if line.strip():
+                story.append(Paragraph(line.strip(), styles["Normal"]))
+        doc.build(story)
+        return buf.getvalue()
+
+    @staticmethod
+    def _create_table_pdf(headers: list[str], rows: list[list[str]]) -> bytes:
+        import io
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+        from reportlab.lib import colors
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=letter)
+        table_data = [headers] + rows
+        t = Table(table_data)
+        t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.grey)]))
+        doc.build([t])
+        return buf.getvalue()
+
     def test_parse_scanned_pdf_rejection(self):
         pdf_bytes = b"%PDF-1.4 empty pdf text"
         with pytest.raises(ValueError, match="(Invalid or corrupted PDF file|Scanned or image-based PDFs are not supported)"):
             PDFBatchParser.parse(pdf_bytes)
+
+    def test_parse_format_1_existing(self):
+        text = (
+            "Question:\nWhat is AI?\n\n"
+            "AI Response:\nArtificial Intelligence\n\n"
+            "Reference Answer:\nArtificial Intelligence"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 1
+        assert items[0].question == "What is AI?"
+        assert items[0].ai_response == "Artificial Intelligence"
+        assert items[0].reference_answer == "Artificial Intelligence"
+
+    def test_parse_format_2_numbered_questions(self):
+        text = (
+            "Question 1:\nWhat is Python?\n\n"
+            "AI Response:\nPython language\n\n"
+            "Reference Answer:\nHigh-level language\n\n"
+            "Question 2:\nWhat is FastAPI?\n\n"
+            "AI Response:\nFast framework\n\n"
+            "Reference Answer:\nPython framework"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 2
+        assert items[0].question == "What is Python?"
+        assert items[1].question == "What is FastAPI?"
+
+    def test_parse_format_3_short_labels(self):
+        text = (
+            "Q:\nWhat is ML?\n\n"
+            "A:\nMachine Learning\n\n"
+            "Reference:\nStudy of computer algorithms"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 1
+        assert items[0].question == "What is ML?"
+        assert items[0].ai_response == "Machine Learning"
+        assert items[0].reference_answer == "Study of computer algorithms"
+
+    def test_parse_format_4_response_label(self):
+        text = (
+            "Question:\nWhat is Docker?\n\n"
+            "Response:\nContainerization platform\n\n"
+            "Reference:\nOS-level virtualization"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 1
+        assert items[0].question == "What is Docker?"
+        assert items[0].ai_response == "Containerization platform"
+        assert items[0].reference_answer == "OS-level virtualization"
+
+    def test_parse_format_5_expected_answer_label(self):
+        text = (
+            "Question:\nWhat is SQL?\n\n"
+            "AI Answer:\nStructured Query Language\n\n"
+            "Expected Answer:\nDatabase language"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 1
+        assert items[0].question == "What is SQL?"
+        assert items[0].ai_response == "Structured Query Language"
+        assert items[0].reference_answer == "Database language"
+
+    def test_parse_format_7_numbered_blocks(self):
+        text = (
+            "1.\n"
+            "Question:\nWhat is RAG?\n\n"
+            "AI Response:\nRetrieval Augmented Generation\n\n"
+            "Reference Answer:\nRetrieval generation technique\n\n"
+            "2.\n"
+            "Question:\nWhat is LLM?\n\n"
+            "AI Response:\nLarge Language Model\n\n"
+            "Reference Answer:\nDeep learning model"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 2
+        assert items[0].question == "What is RAG?"
+        assert items[1].question == "What is LLM?"
+
+    def test_parse_format_8_markdown_headings(self):
+        text = (
+            "## Question\nWhat is Pytest?\n\n"
+            "## AI Response\nPython testing framework\n\n"
+            "## Reference Answer\nAutomated test framework"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 1
+        assert items[0].question == "What is Pytest?"
+        assert items[0].ai_response == "Python testing framework"
+        assert items[0].reference_answer == "Automated test framework"
+
+    def test_parse_format_9_table_pdf(self):
+        headers = ["Question", "AI Response", "Reference Answer"]
+        rows = [
+            ["What is React?", "Frontend UI library", "JavaScript library for UIs"],
+            ["What is Vue?", "Progressive framework", "JavaScript web framework"]
+        ]
+        pdf_bytes = self._create_table_pdf(headers, rows)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 2
+        assert items[0].question == "What is React?"
+        assert items[0].ai_response == "Frontend UI library"
+        assert items[1].question == "What is Vue?"
+
+    def test_parse_missing_fields_and_detailed_error_report(self):
+        text = (
+            "Question:\nWhat is valid?\n\n"
+            "AI Response:\nValid response\n\n"
+            "Question:\nWhat is invalid without response?\n\n"
+            "Reference Answer:\nNo response given"
+        )
+        pdf_bytes = self._create_simple_pdf(text)
+        items = PDFBatchParser.parse(pdf_bytes)
+        assert len(items) == 1
+        assert items[0].question == "What is valid?"
 
 
 class TestBatchEvaluationService:

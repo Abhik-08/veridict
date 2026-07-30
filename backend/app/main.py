@@ -18,6 +18,7 @@ from app.database.base import Base
 import app.database.models  # Ensures all models are imported before create_all
 from app.common.exceptions.base import BaseAppException
 from app.common.models.responses import ErrorResponse
+from app.core.config import settings
 
 # --------------------------------------------------
 # Structured Logging Initialization (Phase I)
@@ -36,14 +37,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-    ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:[0-9]+)?",
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

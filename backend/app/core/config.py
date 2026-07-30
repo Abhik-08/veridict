@@ -11,6 +11,14 @@ class Settings(BaseSettings):
     JWT_DEBUG_LOGGING: bool = False
     BACKEND_CORS_ORIGINS: str = "http://localhost:5173"
 
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.BACKEND_CORS_ORIGINS.split(",")
+            if origin.strip()
+        ]
+
     # ==============================
     # AI & LLM Settings
     # ==============================

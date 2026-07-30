@@ -145,11 +145,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const register = useCallback(async (email: string, pass: string) => {
+    const redirectUrl = window.location.hostname === 'localhost' 
+      ? 'https://veridict-amber.vercel.app/login'
+      : `${window.location.origin}/login`
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password: pass,
       options: {
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: redirectUrl,
       },
     })
     return { data, error }

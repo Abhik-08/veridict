@@ -1,31 +1,21 @@
 import React from 'react'
-import { ShieldCheck } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
 export const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between items-center p-4 relative overflow-hidden">
-      {/* Subtle Background Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
+    <div className="min-h-screen bg-[#030304] text-slate-100 flex flex-col justify-between items-center relative overflow-x-hidden">
+      {/* Subtle Radial Gradient & Pattern Background */}
+      <div className="grid-bg" />
+      <div className="absolute top-1/3 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-amber-500/5 blur-[100px] rounded-full pointer-events-none" />
 
-      {/* Header Logo */}
-      <header className="pt-8 pb-4 z-10">
-        <Link to="/" className="flex items-center gap-2 text-lg font-bold font-display text-white hover:text-amber-400 transition-colors">
-          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <span>Veridict</span>
-        </Link>
-      </header>
-
-      {/* Center Form Card */}
-      <main className="w-full flex justify-center items-center py-6 z-10">
+      {/* Main Container */}
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12 z-10 flex-1 flex items-center justify-center">
         {children}
       </main>
 
-      {/* Clean Bottom Spacing / Tagline */}
-      <footer className="pb-6 text-center text-xs text-slate-500 font-mono z-10">
-        Continuous AI Evaluation Platform
+      {/* Footer */}
+      <footer className="w-full py-4 text-center text-xs text-slate-500 font-sans border-t border-slate-900/60 z-10">
+        Veridict AI Response Quality Evaluation Platform
       </footer>
     </div>
   )

@@ -13,7 +13,7 @@ import { ToastContainer, type ToastMessage } from '@/components/Toast'
 import { useMounted } from '@/hooks'
 import { useEvaluation } from '@/context/EvaluationContext'
 import { cn } from '@/utils'
-import { ArrowRight, RefreshCw, Loader2, UserCheck, Layers, Upload, Play, BarChart2, Download, Bot } from 'lucide-react'
+import { ArrowRight, RefreshCw, Loader2, UserCheck, Layers, Upload, Play, BarChart2, Download, Bot, Check } from 'lucide-react'
 import { evaluateResponse } from '@/services/evaluationService'
 
 export function HomePage() {
@@ -93,33 +93,60 @@ export function HomePage() {
 
   // Workflow steps
   const steps = [
-    { num: '①', label: 'Upload Files', icon: Upload },
-    { num: '②', label: 'Run Evaluation', icon: Play },
-    { num: '③', label: 'Review Results', icon: BarChart2 },
-    { num: '④', label: 'Export Reports', icon: Download },
+    { num: '①', label: 'Upload', icon: Upload },
+    { num: '②', label: 'Evaluate', icon: Play },
+    { num: '③', label: 'Review', icon: BarChart2 },
+    { num: '④', label: 'Export', icon: Download },
+  ]
+
+  const featureHighlights = [
+    'Accuracy',
+    'Relevance',
+    'Completeness',
+    'Hallucination Detection',
+    'RAG Grounding',
+    'Explainable Verdict',
   ]
 
   return (
     <div className="flex flex-col items-center w-full pb-16">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Hero Section — Minimal, Compact, Product-First */}
-      <section className="relative flex flex-col items-center justify-center pt-4 pb-2 overflow-hidden w-full">
+      {/* Hero Section — Clean, Premium AI SaaS Landing Header */}
+      <section className="relative flex flex-col items-center justify-center pt-6 pb-4 overflow-hidden w-full">
         <SectionContainer
           className={cn(
             'flex flex-col items-center text-center',
             mounted ? 'animate-fade-in-up' : 'opacity-0'
           )}
         >
-          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white">
-            AI Response Quality Evaluator
-          </h1>
-          <p className="mt-2 text-sm text-slate-300 max-w-xl leading-relaxed">
-            Multi-agent evaluation platform detecting hallucinations, measuring factual accuracy, and verifying RAG compliance.
+          {/* 1. Main Title & Subtitle */}
+          <div className="flex flex-col items-center gap-1.5">
+            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white">
+              Veridict
+            </h1>
+            <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-amber-400/90">
+              AI Response Quality Evaluation Platform
+            </p>
+          </div>
+
+          {/* 2. Description (Max 2 lines) */}
+          <p className="mt-3.5 text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed">
+            Evaluate AI-generated responses for Accuracy, Relevance, Completeness, Hallucination Detection, and RAG Grounding using a multi-agent evaluation pipeline.
           </p>
 
-          {/* Engine Mode Toggle Bar */}
-          <div className="mt-4 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-1 shadow-xl">
+          {/* 3. Compact Horizontal Feature Highlights */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 max-w-3xl px-4 text-xs font-medium text-slate-300">
+            {featureHighlights.map((feat) => (
+              <span key={feat} className="inline-flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 px-2.5 py-1 rounded-full text-[11px] text-slate-200 shadow-xs">
+                <Check size={12} className="text-amber-400 shrink-0" />
+                <span>{feat}</span>
+              </span>
+            ))}
+          </div>
+
+          {/* 4. Evaluation Mode Toggle Bar */}
+          <div className="mt-6 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-1 shadow-xl">
             <button
               type="button"
               onClick={() => setEngineMode('single')}
@@ -129,9 +156,10 @@ export function HomePage() {
                   ? 'bg-amber-500 text-slate-950 shadow-md scale-105'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               )}
+              aria-label="Switch to Single Evaluation mode"
             >
               <UserCheck className="w-4 h-4" />
-              <span>Single Prompt Evaluator</span>
+              <span>Single Evaluation</span>
             </button>
             <button
               type="button"
@@ -142,26 +170,33 @@ export function HomePage() {
                   ? 'bg-amber-500 text-slate-950 shadow-md scale-105'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               )}
+              aria-label="Switch to Batch Evaluation mode"
             >
               <Layers className="w-4 h-4" />
-              <span>Batch Dataset Evaluator</span>
+              <span>Batch Evaluation</span>
             </button>
           </div>
 
-          {/* Workflow Steps Indicator Bar */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-3xl px-2">
-            {steps.map((step) => {
-              const Icon = step.icon
-              return (
-                <div
-                  key={step.num}
-                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm text-[11px] font-semibold text-slate-300 shadow-sm"
-                >
-                  <Icon className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{step.label}</span>
-                </div>
-              )
-            })}
+          {/* 5. Evaluation Workflow Section */}
+          <div className="mt-6 flex flex-col items-center gap-2 w-full max-w-3xl px-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Evaluation Workflow
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full">
+              {steps.map((step) => {
+                const Icon = step.icon
+                return (
+                  <div
+                    key={step.num}
+                    className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm text-xs font-semibold text-slate-200 shadow-xs hover:border-slate-700 transition-colors"
+                  >
+                    <span className="text-amber-400 font-bold text-xs">{step.num}</span>
+                    <Icon className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{step.label}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </SectionContainer>
       </section>

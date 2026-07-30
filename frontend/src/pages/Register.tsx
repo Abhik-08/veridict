@@ -41,7 +41,11 @@ export const Register: React.FC = () => {
     try {
       const { data, error: authError } = await register(email, password)
       if (authError) {
-        setError(authError.message || 'Registration failed.')
+        if ((authError as any).status === 429 || authError.message?.includes('rate')) {
+          setError('Too many signup attempts. Please wait a few minutes before trying again.')
+        } else {
+          setError(authError.message || 'Registration failed.')
+        }
       } else if (data?.session) {
         setSuccess('Registration successful! Your account is active and you are signed in.')
         setEmail('')

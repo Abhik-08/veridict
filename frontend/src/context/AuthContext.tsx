@@ -13,7 +13,7 @@ export interface AuthContextType {
   requireAuth: () => boolean
   refreshProfile: () => Promise<void>
   login: (email: string, pass: string) => Promise<{ error: Error | null }>
-  register: (email: string, pass: string) => Promise<{ error: Error | null }>
+  register: (email: string, pass: string) => Promise<{ data: any; error: Error | null }>
   loginWithGoogle: () => Promise<{ error: Error | null }>
   resetPassword: (email: string) => Promise<{ error: Error | null }>
   logout: () => Promise<{ error: Error | null }>
@@ -145,14 +145,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const register = useCallback(async (email: string, pass: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password: pass,
       options: {
         emailRedirectTo: `${window.location.origin}/login`,
       },
     })
-    return { error }
+    return { data, error }
   }, [])
 
   const loginWithGoogle = useCallback(async () => {

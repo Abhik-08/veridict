@@ -39,11 +39,16 @@ export const Register: React.FC = () => {
 
     setLoading(true)
     try {
-      const { error: authError } = await register(email, password)
+      const { data, error: authError } = await register(email, password)
       if (authError) {
         setError(authError.message || 'Registration failed.')
+      } else if (data?.session) {
+        setSuccess('Registration successful! Your account is active and you are signed in.')
+        setEmail('')
+        setPassword('')
+        setConfirmPassword('')
       } else {
-        setSuccess('Registration successful! Please check your email to confirm your account.')
+        setSuccess('Registration successful! Please check your email inbox to confirm your account.')
         setEmail('')
         setPassword('')
         setConfirmPassword('')

@@ -100,53 +100,50 @@ export function HomePage() {
   ]
 
   const featureHighlights = [
-    'Accuracy',
-    'Relevance',
-    'Completeness',
-    'Hallucination Detection',
-    'RAG Grounding',
-    'Explainable Verdict',
+    'Multi-Agent Evaluation',
+    'Explainable AI',
+    'RAG Grounded',
   ]
 
   return (
     <div className="flex flex-col items-center w-full pb-16">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Hero Section — Clean, Premium AI SaaS Landing Header */}
-      <section className="relative flex flex-col items-center justify-center pt-6 pb-4 overflow-hidden w-full">
+      {/* Hero Section — Minimal, Clean, Premium SaaS Evaluator Header */}
+      <section className="relative flex flex-col items-center justify-center pt-5 pb-3 overflow-hidden w-full">
         <SectionContainer
           className={cn(
             'flex flex-col items-center text-center',
             mounted ? 'animate-fade-in-up' : 'opacity-0'
           )}
         >
-          {/* 1. Main Title & Subtitle */}
-          <div className="flex flex-col items-center gap-1.5">
-            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white">
+          {/* 1. Title (Reduced by 15-20%) & Subtitle */}
+          <div className="flex flex-col items-center gap-1">
+            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white">
               Veridict
             </h1>
-            <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-amber-400/90">
-              AI Response Quality Evaluation Platform
+            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-amber-400">
+              AI RESPONSE QUALITY EVALUATION PLATFORM
             </p>
           </div>
 
-          {/* 2. Description (Max 2 lines) */}
-          <p className="mt-3.5 text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed">
-            Evaluate AI-generated responses for Accuracy, Relevance, Completeness, Hallucination Detection, and RAG Grounding using a multi-agent evaluation pipeline.
+          {/* 2. Description (Max 2 lines, concise) */}
+          <p className="mt-3 text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+            Professional multi-agent evaluation for AI-generated responses with explainable reasoning, hallucination detection, and RAG-aware verification.
           </p>
 
-          {/* 3. Compact Horizontal Feature Highlights */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 max-w-3xl px-4 text-xs font-medium text-slate-300">
+          {/* 3. Three Concise Feature Highlights Pills */}
+          <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2 max-w-2xl px-4 text-xs font-medium text-slate-300">
             {featureHighlights.map((feat) => (
-              <span key={feat} className="inline-flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 px-2.5 py-1 rounded-full text-[11px] text-slate-200 shadow-xs">
+              <span key={feat} className="inline-flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 px-3 py-1 rounded-full text-[11px] text-slate-200 shadow-xs">
                 <Check size={12} className="text-amber-400 shrink-0" />
                 <span>{feat}</span>
               </span>
             ))}
           </div>
 
-          {/* 4. Evaluation Mode Toggle Bar */}
-          <div className="mt-6 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-1 shadow-xl">
+          {/* 4. Evaluation Mode Toggle Bar (Primary Call-to-Action) */}
+          <div className="mt-5 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-1 shadow-xl">
             <button
               type="button"
               onClick={() => setEngineMode('single')}

@@ -5,6 +5,7 @@ import { useAuth } from '@/context/useAuth'
 import { AuthLayout } from '@/components/Auth/AuthLayout'
 import { AuthCard } from '@/components/Auth/AuthCard'
 import { LoadingButton } from '@/components/Auth/LoadingButton'
+import { mapAuthError } from '@/utils/authErrorMapper'
 
 export const ForgotPassword: React.FC = () => {
   const { resetPassword } = useAuth()
@@ -28,13 +29,13 @@ export const ForgotPassword: React.FC = () => {
     try {
       const { error: resetError } = await resetPassword(email)
       if (resetError) {
-        setError(resetError.message || 'Could not send reset password email.')
+        setError(mapAuthError(resetError, 'reset'))
       } else {
         setSuccess('Password reset link sent! Check your email inbox.')
         setEmail('')
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.')
+      setError(mapAuthError(err, 'reset'))
     } finally {
       setLoading(false)
     }
@@ -79,6 +80,7 @@ export const ForgotPassword: React.FC = () => {
                 id="forgot-password-email"
                 type="email"
                 required
+                autoComplete="email"
                 placeholder="developer@veridict.ai"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

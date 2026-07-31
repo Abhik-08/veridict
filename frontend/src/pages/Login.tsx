@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { AlertCircle, CheckCircle2, Lock, Mail, Eye, EyeOff, Check } from 'lucide-react'
 import logoSrc from '@/assets/logo.png'
@@ -7,6 +7,7 @@ import { useAuth } from '@/context/useAuth'
 import { AuthLayout } from '@/components/Auth/AuthLayout'
 import { AuthCard } from '@/components/Auth/AuthCard'
 import { LoadingButton } from '@/components/Auth/LoadingButton'
+import { mapAuthError } from '@/utils/authErrorMapper'
 
 export const Login: React.FC = () => {
   const { login, loginWithGoogle } = useAuth()
@@ -16,7 +17,16 @@ export const Login: React.FC = () => {
   const searchParams = new URLSearchParams(location.search)
   const redirectParam = searchParams.get('redirect')
   const fromState = (location.state as any)?.from?.pathname
-  const returnUrl = redirectParam || fromState || '/'
+
+  // OWASP Open Redirect Defense: Sanitize redirect destination to internal relative paths only
+  const sanitizeRedirectUrl = (url: string | null | undefined): string => {
+    if (!url) return '/'
+    if (url.startsWith('/') && !url.startsWith('//') && !url.includes('\\') && !url.includes(':')) {
+      return url
+    }
+    return '/'
+  }
+  const returnUrl = sanitizeRedirectUrl(redirectParam || fromState)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,6 +35,20 @@ export const Login: React.FC = () => {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  // Detect URL error parameters from Supabase email verification or password reset links
+  useEffect(() => {
+    const hash = window.location.hash
+    const query = window.location.search
+    if (hash.includes('error=') || query.includes('error=')) {
+      const params = new URLSearchParams(hash.replace('#', '?') || query)
+      const errCode = params.get('error_code') || params.get('error')
+      const errDesc = params.get('error_description')
+      if (errCode || errDesc) {
+        setError(mapAuthError({ message: errDesc || undefined, code: errCode || undefined }, 'login'))
+      }
+    }
+  }, [location])
 
   const handleLogin = async (e: React.SyntheticEvent) => {
     e.preventDefault()
@@ -40,13 +64,13 @@ export const Login: React.FC = () => {
     try {
       const { error: authError } = await login(email, password)
       if (authError) {
-        setError(authError.message || 'Invalid login credentials.')
+        setError(mapAuthError(authError, 'login'))
       } else {
         setSuccess('Login successful! Redirecting...')
         setTimeout(() => navigate(returnUrl, { replace: true }), 600)
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred during login.')
+      setError(mapAuthError(err, 'login'))
     } finally {
       setLoading(false)
     }
@@ -58,10 +82,10 @@ export const Login: React.FC = () => {
     try {
       const { error: oauthError } = await loginWithGoogle()
       if (oauthError) {
-        setError(oauthError.message || 'Google OAuth failed.')
+        setError(mapAuthError(oauthError, 'login'))
       }
     } catch (err: any) {
-      setError(err.message || 'Could not connect to Google auth.')
+      setError(mapAuthError(err, 'login'))
     } finally {
       setGoogleLoading(false)
     }
@@ -170,6 +194,7 @@ export const Login: React.FC = () => {
                     id="login-email"
                     type="email"
                     required
+                    autoComplete="email"
                     placeholder="developer@veridict.ai"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -193,6 +218,7 @@ export const Login: React.FC = () => {
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     required
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

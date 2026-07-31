@@ -23,7 +23,9 @@ class AuthManager {
       const isPublic = publicPaths.some((p) => path.startsWith(p))
 
       if (!isPublic) {
-        const target = `/login?redirect=${encodeURIComponent(path + window.location.search)}`
+        // OWASP Open Redirect Defense: Sanitize path string
+        const safePath = path.startsWith('/') && !path.startsWith('//') && !path.includes('\\') ? path : '/'
+        const target = `/login?redirect=${encodeURIComponent(safePath + window.location.search)}`
         window.location.href = target
       }
     }

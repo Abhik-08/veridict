@@ -5,6 +5,7 @@ import { useAuth } from '@/context/useAuth'
 import { AuthLayout } from '@/components/Auth/AuthLayout'
 import { AuthCard } from '@/components/Auth/AuthCard'
 import { LoadingButton } from '@/components/Auth/LoadingButton'
+import { mapAuthError } from '@/utils/authErrorMapper'
 
 export const Register: React.FC = () => {
   const { register, loginWithGoogle } = useAuth()
@@ -41,11 +42,7 @@ export const Register: React.FC = () => {
     try {
       const { data, error: authError } = await register(email, password)
       if (authError) {
-        if ((authError as any).status === 429 || authError.message?.includes('rate')) {
-          setError('Too many signup attempts. Please wait a few minutes before trying again.')
-        } else {
-          setError(authError.message || 'Registration failed.')
-        }
+        setError(mapAuthError(authError, 'register'))
       } else if (data?.session) {
         setSuccess('Registration successful! Your account is active and you are signed in.')
         setEmail('')
@@ -58,7 +55,7 @@ export const Register: React.FC = () => {
         setConfirmPassword('')
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred during registration.')
+      setError(mapAuthError(err, 'register'))
     } finally {
       setLoading(false)
     }
@@ -70,10 +67,10 @@ export const Register: React.FC = () => {
     try {
       const { error: oauthError } = await loginWithGoogle()
       if (oauthError) {
-        setError(oauthError.message || 'Google OAuth failed.')
+        setError(mapAuthError(oauthError, 'register'))
       }
     } catch (err: any) {
-      setError(err.message || 'Could not connect to Google auth.')
+      setError(mapAuthError(err, 'register'))
     } finally {
       setGoogleLoading(false)
     }
@@ -118,6 +115,7 @@ export const Register: React.FC = () => {
                 id="register-email"
                 type="email"
                 required
+                autoComplete="email"
                 placeholder="developer@veridict.ai"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -136,6 +134,7 @@ export const Register: React.FC = () => {
                 id="register-password"
                 type="password"
                 required
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -154,6 +153,7 @@ export const Register: React.FC = () => {
                 id="register-confirm-password"
                 type="password"
                 required
+                autoComplete="new-password"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

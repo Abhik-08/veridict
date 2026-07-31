@@ -163,10 +163,17 @@ function ExportPDFButton({ result }: Readonly<{ result: EvaluationResultData }>)
       type="button"
       onClick={handleExportPDF}
       disabled={isExporting}
-      className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl border border-primary/40 bg-primary text-white hover:bg-primary-hover disabled:opacity-50 transition-all shadow-sm cursor-pointer"
+      className="flex items-center gap-2 text-xs font-bold px-3 sm:px-4 py-2 rounded-xl border border-primary/40 bg-primary text-white hover:bg-primary-hover disabled:opacity-50 transition-all shadow-sm cursor-pointer min-h-[38px]"
     >
-      <FileText size={15} />
-      <span>{isExporting ? "Generating PDF..." : "Export AI Evaluation Report (PDF)"}</span>
+      <FileText size={15} className="shrink-0" />
+      {isExporting ? (
+        <span>Generating PDF...</span>
+      ) : (
+        <>
+          <span className="hidden sm:inline">Export AI Evaluation Report (PDF)</span>
+          <span className="sm:hidden">Export PDF Report</span>
+        </>
+      )}
     </button>
   )
 }
@@ -954,20 +961,20 @@ export function EvaluationResult({ result }: Readonly<EvaluationResultProps>) {
   const badge = verdict_evaluation ? getVerdictBadge(verdict_evaluation.verdict) : null
 
   return (
-    <SectionContainer width="narrow" className="mt-12 w-full animate-fade-in-up relative">
+    <SectionContainer className="mt-12 w-full animate-fade-in-up relative">
       {/* Sticky Compact Verdict Summary Header on Scroll */}
       {verdict_evaluation && badge && (
-        <div className="sticky top-4 z-30 bg-background/90 backdrop-blur-md border border-primary/40 rounded-2xl py-3 px-6 shadow-glow-sm mb-8 flex flex-wrap items-center justify-between gap-4 transition-all duration-300">
-          <div className="flex items-center gap-3">
+        <div className="sticky top-4 z-30 bg-background/90 backdrop-blur-md border border-primary/40 rounded-2xl py-3 px-4 sm:px-6 shadow-glow-sm mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 transition-all duration-300">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Award size={20} className="text-primary shrink-0" />
-            <span className="font-display font-bold text-sm text-text-primary">Verdict Overview:</span>
-            <span className={`text-xs font-bold border rounded-full px-3 py-0.5 uppercase tracking-wider ${badge.colorClass}`}>
+            <span className="font-display font-bold text-xs sm:text-sm text-text-primary">Verdict Overview:</span>
+            <span className={`text-[10px] sm:text-xs font-bold border rounded-full px-2.5 sm:px-3 py-0.5 uppercase tracking-wider ${badge.colorClass}`}>
               {badge.label}
             </span>
           </div>
 
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-display font-extrabold text-text-primary tracking-tight">
+          <div className="flex items-baseline gap-1 self-end sm:self-auto">
+            <span className="text-xl sm:text-2xl font-display font-extrabold text-text-primary tracking-tight">
               {verdict_evaluation.overall_score.toFixed(2)}
             </span>
             <span className="text-xs text-muted font-medium">/ 5.00</span>

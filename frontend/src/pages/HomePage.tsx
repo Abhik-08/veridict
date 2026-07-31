@@ -202,7 +202,7 @@ export function HomePage() {
       {engineMode === 'single' && (
         <>
           <section className="relative w-full z-10 pt-2">
-            <SectionContainer width="narrow">
+            <SectionContainer>
               <GlassCard padding="lg" static className="border border-border/80 shadow-glow-sm">
                 <div className="flex items-center justify-between border-b border-border/80 pb-4 mb-6">
                   <div>
@@ -340,7 +340,7 @@ export function HomePage() {
 
           {/* Inline Loading / Progress Panel */}
           {isEvaluating && (
-            <SectionContainer width="narrow" className="mt-4 w-full animate-fade-in-up">
+            <SectionContainer className="mt-4 w-full animate-fade-in-up">
               <GlassCard padding="lg" static className="border border-amber-500/30 bg-slate-950/80 backdrop-blur-md flex flex-col gap-4 shadow-xl">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">

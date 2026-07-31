@@ -344,21 +344,29 @@
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 24px;
+    padding: 0 16px;
   }
 
   .section-container-narrow {
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
-    padding: 0 24px;
+    padding: 0 16px;
   }
 
   .section-container-wide {
     width: 100%;
     max-width: 1440px;
     margin: 0 auto;
-    padding: 0 24px;
+    padding: 0 16px;
+  }
+
+  @media (min-width: 640px) {
+    .section-container,
+    .section-container-narrow,
+    .section-container-wide {
+      padding: 0 24px;
+    }
   }
 
   /* ---------- Animated Background ---------- */

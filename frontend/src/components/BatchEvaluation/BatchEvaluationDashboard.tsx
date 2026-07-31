@@ -445,8 +445,8 @@ const BatchTableRow: React.FC<{
         <HighlightMatch text={item.id} query={searchQuery} />
       </td>
 
-      {/* Sticky Question & Response Column */}
-      <td className="px-4 py-3.5 max-w-xl space-y-1 align-top sticky left-0 bg-slate-950/95 border-r border-slate-800/80 z-10 backdrop-blur-sm">
+      {/* QA Pair & Reasoning Column */}
+      <td className="px-3.5 sm:px-4 py-3.5 max-w-[200px] sm:max-w-xs md:max-w-xl space-y-1 align-top md:sticky md:left-0 bg-slate-950/95 border-r border-slate-800/80 z-10 backdrop-blur-sm">
         <div className="text-sm font-bold text-slate-100">
           Q: <HighlightMatch text={item.question} query={searchQuery} />
         </div>
@@ -937,7 +937,7 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
                 <thead className="bg-slate-900 border-b border-slate-800 sticky top-0 z-20 shadow-md">
                   <tr>
                     <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-slate-400 w-16">ID</th>
-                    <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400 sticky left-0 bg-slate-900 border-r border-slate-800 z-30">
+                    <th className="px-3.5 sm:px-4 py-3 font-bold uppercase tracking-wider text-slate-400 md:sticky md:left-0 bg-slate-900 border-r border-slate-800 z-30 min-w-[160px]">
                       QA Pair & Reasoning
                     </th>
                     <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-slate-300 w-24">Overall</th>

@@ -117,36 +117,36 @@ export function HistoryFilters({
         </div>
 
         {/* Date Range Filters */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             Date Range
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col xs:flex-row sm:flex-row items-stretch xs:items-center sm:items-center gap-1.5 w-full sm:w-auto">
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => onDateFromChange(e.target.value)}
               aria-label="From Date"
-              className="bg-slate-950 text-xs font-medium text-slate-200 border border-slate-800 rounded-xl px-2.5 py-1.5 outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 cursor-pointer transition-all duration-150"
+              className="bg-slate-950 text-xs font-medium text-slate-200 border border-slate-800 rounded-xl px-2.5 py-1.5 outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 cursor-pointer transition-all duration-150 w-full sm:w-auto"
             />
-            <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+            <ArrowRight className="w-3.5 h-3.5 text-slate-500 hidden xs:block sm:block self-center shrink-0" />
             <input
               type="date"
               value={dateTo}
               onChange={(e) => onDateToChange(e.target.value)}
               aria-label="To Date"
-              className="bg-slate-950 text-xs font-medium text-slate-200 border border-slate-800 rounded-xl px-2.5 py-1.5 outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 cursor-pointer transition-all duration-150"
+              className="bg-slate-950 text-xs font-medium text-slate-200 border border-slate-800 rounded-xl px-2.5 py-1.5 outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 cursor-pointer transition-all duration-150 w-full sm:w-auto"
             />
           </div>
         </div>
 
         {/* Reset Filters Button */}
-        <div className="flex items-end ml-auto">
+        <div className="flex items-end w-full sm:w-auto sm:ml-auto pt-1 sm:pt-0">
           <button
             type="button"
             onClick={onReset}
             disabled={!hasActiveFilters}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 disabled:opacity-40 border border-slate-700/60 rounded-xl transition-all duration-150 cursor-pointer disabled:cursor-not-allowed"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 disabled:opacity-40 border border-slate-700/60 rounded-xl transition-all duration-150 cursor-pointer disabled:cursor-not-allowed min-h-[36px]"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Filters</span>

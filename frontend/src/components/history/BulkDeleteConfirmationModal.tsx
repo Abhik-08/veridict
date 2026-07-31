@@ -18,7 +18,7 @@ export function BulkDeleteConfirmationModal({
   if (!isOpen || selectedCount === 0) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop overlay */}
       <button
         type="button"
@@ -29,7 +29,7 @@ export function BulkDeleteConfirmationModal({
       />
 
       {/* Modal Dialog Box */}
-      <div className="relative z-10 w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4">
+      <div className="relative z-10 w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400">

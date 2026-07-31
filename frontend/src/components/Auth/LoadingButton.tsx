@@ -16,7 +16,7 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
   ...props
 }) => {
   const baseStyle =
-    'w-full py-2.5 px-4 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all duration-150 shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+    'w-full min-h-[42px] py-2.5 px-4 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all duration-150 shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
 
   const variants = {
     primary: 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950',

@@ -936,7 +936,6 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
                     <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Complete</th>
                     <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Grounding</th>
                     <th className="px-3.5 py-3 font-bold uppercase tracking-wider text-slate-300 w-28">Verdict</th>
-                    <th className="px-3.5 py-3 font-semibold uppercase tracking-wider text-slate-400 w-20">Conf</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-sans">
@@ -951,7 +950,7 @@ export const BatchEvaluationDashboard: React.FC<BatchEvaluationDashboardProps> =
                   ))}
                   {filteredResults.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-4 py-12 text-center">
+                      <td colSpan={8} className="px-4 py-12 text-center">
                         <div className="space-y-3 max-w-md mx-auto">
                           <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-400">
                             <Search className="w-5 h-5" />

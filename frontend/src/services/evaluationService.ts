@@ -26,7 +26,9 @@ export const evaluateResponse = async ({
     formData.append("pdf_file", file);
   }
 
-  const response = await api.post("/evaluate", formData);
+  const response = await api.post("/evaluate", formData, {
+    timeout: 120000,
+  });
 
   return response.data;
 };

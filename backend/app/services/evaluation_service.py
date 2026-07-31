@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -136,90 +137,104 @@ class EvaluationService:
             for chunk in retrieval_results
         ]
 
-        # -------------------------------------------------
-        # Evaluate response relevance
-        # -------------------------------------------------
-        relevance_eval = None
-        try:
-            judge_res = self.relevance_judge.evaluate_relevance(
-                question=request.question,
-                ai_response=request.ai_response
-            )
-            relevance_eval = RelevanceEvaluationResult(
-                relevance_score=judge_res.result.relevance_score,
-                reasoning=judge_res.result.reasoning,
-                model_used=judge_res.model_used
-            )
-        except (JudgeLLMConfigurationError, ValueError):
-            raise
-        except Exception:
-            logger.exception("Temporary Relevance Judge unavailability encountered.")
+        retrieved_evidence = "\n\n".join(c.text for c in retrieved_chunks) if retrieved_chunks else None
 
         # -------------------------------------------------
-        # Evaluate response accuracy
+        # Concurrently Evaluate Response (Parallel Judge LLM Execution)
         # -------------------------------------------------
-        accuracy_eval = None
-        try:
-            retrieved_evidence = "\n\n".join(c.text for c in retrieved_chunks) if retrieved_chunks else None
-            accuracy_res = self.accuracy_judge.evaluate_accuracy(
-                question=request.question,
-                ai_response=request.ai_response,
-                reference_answer=request.reference_answer,
-                retrieved_evidence=retrieved_evidence
-            )
-            accuracy_eval = AccuracyEvaluationResult(
-                accuracy_score=accuracy_res.result.accuracy_score,
-                reasoning=accuracy_res.result.reasoning,
-                model_used=accuracy_res.model_used
-            )
-        except (JudgeLLMConfigurationError, ValueError):
-            raise
-        except Exception:
-            logger.exception("Temporary Accuracy Judge unavailability encountered.")
+        def run_relevance():
+            try:
+                judge_res = self.relevance_judge.evaluate_relevance(
+                    question=request.question,
+                    ai_response=request.ai_response
+                )
+                return RelevanceEvaluationResult(
+                    relevance_score=judge_res.result.relevance_score,
+                    reasoning=judge_res.result.reasoning,
+                    model_used=judge_res.model_used
+                )
+            except (JudgeLLMConfigurationError, ValueError):
+                raise
+            except Exception:
+                logger.exception("Temporary Relevance Judge unavailability encountered.")
+                return None
 
-        # -------------------------------------------------
-        # Evaluate response hallucination
-        # -------------------------------------------------
-        hallucination_eval = None
-        try:
-            retrieved_evidence = "\n\n".join(c.text for c in retrieved_chunks) if retrieved_chunks else None
-            hallucination_res = self.hallucination_judge.evaluate_hallucination(
-                question=request.question,
-                ai_response=request.ai_response,
-                reference_answer=request.reference_answer,
-                retrieved_evidence=retrieved_evidence
-            )
-            hallucination_eval = HallucinationEvaluationResult(
-                status=hallucination_res.result.status,
-                hallucination_score=hallucination_res.result.hallucination_score,
-                reasoning=hallucination_res.result.reasoning,
-                model_used=hallucination_res.model_used
-            )
-        except (JudgeLLMConfigurationError, ValueError):
-            raise
-        except Exception:
-            logger.exception("Temporary Hallucination Judge unavailability encountered.")
+        def run_accuracy():
+            try:
+                accuracy_res = self.accuracy_judge.evaluate_accuracy(
+                    question=request.question,
+                    ai_response=request.ai_response,
+                    reference_answer=request.reference_answer,
+                    retrieved_evidence=retrieved_evidence
+                )
+                return AccuracyEvaluationResult(
+                    accuracy_score=accuracy_res.result.accuracy_score,
+                    reasoning=accuracy_res.result.reasoning,
+                    model_used=accuracy_res.model_used
+                )
+            except (JudgeLLMConfigurationError, ValueError):
+                raise
+            except Exception:
+                logger.exception("Temporary Accuracy Judge unavailability encountered.")
+                return None
 
-        # -------------------------------------------------
-        # Evaluate response completeness
-        # -------------------------------------------------
-        completeness_eval = None
-        try:
-            completeness_res = self.completeness_judge.evaluate_completeness(
-                question=request.question,
-                ai_response=request.ai_response
-            )
-            completeness_eval = CompletenessEvaluationResult(
-                completeness_score=completeness_res.result.completeness_score,
-                reasoning=completeness_res.result.reasoning,
-                covered_aspects=completeness_res.result.covered_aspects,
-                missing_aspects=completeness_res.result.missing_aspects,
-                model_used=completeness_res.model_used
-            )
-        except (JudgeLLMConfigurationError, ValueError):
-            raise
-        except Exception:
-            logger.exception("Temporary Completeness Judge unavailability encountered.")
+        def run_hallucination():
+            try:
+                hallucination_res = self.hallucination_judge.evaluate_hallucination(
+                    question=request.question,
+                    ai_response=request.ai_response,
+                    reference_answer=request.reference_answer,
+                    retrieved_evidence=retrieved_evidence
+                )
+                return HallucinationEvaluationResult(
+                    status=hallucination_res.result.status,
+                    hallucination_score=hallucination_res.result.hallucination_score,
+                    reasoning=hallucination_res.result.reasoning,
+                    model_used=hallucination_res.model_used
+                )
+            except (JudgeLLMConfigurationError, ValueError):
+                raise
+            except Exception:
+                logger.exception("Temporary Hallucination Judge unavailability encountered.")
+                return None
+
+        def run_completeness():
+            try:
+                completeness_res = self.completeness_judge.evaluate_completeness(
+                    question=request.question,
+                    ai_response=request.ai_response
+                )
+                return CompletenessEvaluationResult(
+                    completeness_score=completeness_res.result.completeness_score,
+                    reasoning=completeness_res.result.reasoning,
+                    covered_aspects=completeness_res.result.covered_aspects,
+                    missing_aspects=completeness_res.result.missing_aspects,
+                    model_used=completeness_res.model_used
+                )
+            except (JudgeLLMConfigurationError, ValueError):
+                raise
+            except Exception:
+                logger.exception("Temporary Completeness Judge unavailability encountered.")
+                return None
+
+        # Execute 4 Judge Agents in parallel worker threads
+        results = await asyncio.gather(
+            asyncio.to_thread(run_relevance),
+            asyncio.to_thread(run_accuracy),
+            asyncio.to_thread(run_hallucination),
+            asyncio.to_thread(run_completeness),
+            return_exceptions=True
+        )
+
+        relevance_eval = results[0] if not isinstance(results[0], Exception) else None
+        accuracy_eval = results[1] if not isinstance(results[1], Exception) else None
+        hallucination_eval = results[2] if not isinstance(results[2], Exception) else None
+        completeness_eval = results[3] if not isinstance(results[3], Exception) else None
+
+        # Raise configuration/validation errors if any judge raised them
+        for res in results:
+            if isinstance(res, (JudgeLLMConfigurationError, ValueError)):
+                raise res
 
         # -------------------------------------------------
         # Synthesize overall evaluation verdict

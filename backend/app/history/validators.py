@@ -8,9 +8,9 @@ from typing import Optional
 from app.history.exceptions import InvalidHistoryFilterError
 from app.common.utils.pagination import calculate_offset
 from app.common.utils.sorting import validate_and_normalize_sort
-from app.common.utils.filters import validate_score_range, validate_confidence_range, validate_date_range
+from app.common.utils.filters import validate_score_range, validate_date_range
 
-ALLOWED_SORT_FIELDS = {"created_at", "overall_score", "confidence", "question", "verdict"}
+ALLOWED_SORT_FIELDS = {"created_at", "overall_score", "question", "verdict"}
 
 
 class HistoryQueryValidator:
@@ -36,13 +36,10 @@ class HistoryQueryValidator:
     def validate_range_params(
         score_min: Optional[float] = None,
         score_max: Optional[float] = None,
-        confidence_min: Optional[float] = None,
-        confidence_max: Optional[float] = None,
     ) -> None:
-        """Validates score and confidence range boundaries."""
+        """Validates score range boundaries."""
         try:
             validate_score_range(score_min, score_max)
-            validate_confidence_range(confidence_min, confidence_max)
         except Exception as err:
             raise InvalidHistoryFilterError(str(err))
 

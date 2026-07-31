@@ -80,7 +80,7 @@ class HistoryService:
         # 1. Validate inputs before query execution
         HistoryQueryValidator.validate_pagination(params.page, params.page_size)
         HistoryQueryValidator.validate_sort_params(params.sort_by, params.sort_order)
-        HistoryQueryValidator.validate_range_params(params.score_min, params.score_max, params.confidence_min, params.confidence_max)
+        HistoryQueryValidator.validate_range_params(params.score_min, params.score_max)
         HistoryQueryValidator.validate_date_range(params.date_from, params.date_to)
 
         # 2. Execute repository query
@@ -175,8 +175,6 @@ class HistoryService:
         fail_cnt = sum(1 for e in linked_evals if e.verdict == EvaluationVerdict.FAIL.value)
 
         avg_score = round(sum(e.overall_score for e in linked_evals) / len(linked_evals), 2) if linked_evals else 0.0
-        conf_values = [e.confidence for e in linked_evals if e.confidence is not None]
-        avg_conf = round(sum(conf_values) / len(conf_values), 2) if conf_values else 0.0
 
         items_mapped = [HistoryItemResponse.model_validate(e) for e in linked_evals]
         return BatchDetailResponse(
@@ -187,7 +185,6 @@ class HistoryService:
             total_items=batch.total_items,
             completed_items=batch.completed_items,
             average_score=avg_score,
-            average_confidence=avg_conf,
             created_at=batch.created_at,
             updated_at=batch.updated_at,
             evaluations=items_mapped,

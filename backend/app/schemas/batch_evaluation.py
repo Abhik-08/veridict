@@ -32,7 +32,6 @@ class BatchItemEvaluationResult(BaseModel):
     accuracy_score: float = Field(0.0, ge=0.0, le=5.0)
     hallucination_score: float | None = Field(None, description="None if INSUFFICIENT_EVIDENCE")
     completeness_score: float = Field(0.0, ge=0.0, le=5.0)
-    confidence: float = Field(1.0, ge=0.0, le=1.0)
     overall_score: float = Field(0.0, ge=0.0, le=5.0)
     verdict: str = Field("FAIL", description="PASS, NEEDS_IMPROVEMENT, or FAIL")
     reasoning: str = Field("", description="Concise evaluation summary for this item")

@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   XCircle,
   Award,
-  ShieldAlert,
   Layers,
   Activity,
 } from 'lucide-react'
@@ -20,87 +19,99 @@ interface DashboardStatsGridProps {
 export function DashboardStatsGrid({ stats, loading }: Readonly<DashboardStatsGridProps>) {
   if (loading || !stats) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 8 }).map((_, idx) => (
-          <SkeletonCard key={idx} />
-        ))}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:justify-center gap-4">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx} className="w-full lg:w-[calc(25%-12px)]">
+              <SkeletonCard />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Total Evaluations */}
-      <DashboardStatCard
-        title="Total Evaluations"
-        value={stats.total_evaluations}
-        subtitle={`${stats.recent_activity_count} in last 24h`}
-        icon={<BarChart3 className="w-5 h-5" />}
-        accentColor="amber"
-      />
+    <div className="space-y-4">
+      {/* Top Row: 4 Primary Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Evaluations */}
+        <DashboardStatCard
+          title="Total Evaluations"
+          value={stats.total_evaluations}
+          subtitle={`${stats.recent_activity_count} in last 24h`}
+          icon={<BarChart3 className="w-5 h-5" />}
+          accentColor="amber"
+        />
 
-      {/* Average Score */}
-      <DashboardStatCard
-        title="Average Score"
-        value={`${stats.average_score.toFixed(2)} / 5.0`}
-        subtitle={`Max: ${stats.highest_score?.toFixed(1) || '-'} | Min: ${stats.lowest_score?.toFixed(1) || '-'}`}
-        icon={<Award className="w-5 h-5" />}
-        accentColor="blue"
-      />
+        {/* Average Score */}
+        <DashboardStatCard
+          title="Average Score"
+          value={`${stats.average_score.toFixed(2)} / 5.0`}
+          subtitle={`Max: ${stats.highest_score?.toFixed(1) || '-'} | Min: ${stats.lowest_score?.toFixed(1) || '-'}`}
+          icon={<Award className="w-5 h-5" />}
+          accentColor="blue"
+        />
 
-      {/* Average Confidence */}
-      <DashboardStatCard
-        title="Average Confidence"
-        value={`${(stats.average_confidence * 100).toFixed(0)}%`}
-        subtitle="Verdict model certainty"
-        icon={<ShieldAlert className="w-5 h-5" />}
-        accentColor="purple"
-      />
+        {/* PASS Rate */}
+        <DashboardStatCard
+          title="PASS Rate"
+          value={`${stats.pass_percentage.toFixed(1)}%`}
+          subtitle={`${stats.pass_count} evaluation(s) passed`}
+          icon={<CheckCircle2 className="w-5 h-5" />}
+          accentColor="emerald"
+        />
 
-      {/* PASS Rate */}
-      <DashboardStatCard
-        title="PASS Rate"
-        value={`${stats.pass_percentage.toFixed(1)}%`}
-        subtitle={`${stats.pass_count} evaluation(s) passed`}
-        icon={<CheckCircle2 className="w-5 h-5" />}
-        accentColor="emerald"
-      />
+        {/* FAIL Rate */}
+        <DashboardStatCard
+          title="FAIL Rate"
+          value={`${(stats.fail_percentage ?? 0).toFixed(1)}%`}
+          subtitle={`${stats.fail_count} evaluation(s) failed`}
+          icon={<XCircle className="w-5 h-5" />}
+          accentColor="rose"
+        />
+      </div>
 
-      {/* FAIL Rate */}
-      <DashboardStatCard
-        title="FAIL Rate"
-        value={`${(stats.fail_percentage ?? 0).toFixed(1)}%`}
-        subtitle={`${stats.fail_count} evaluation(s) failed`}
-        icon={<XCircle className="w-5 h-5" />}
-        accentColor="rose"
-      />
+      {/* Bottom Row: 3 Secondary Metrics Centered */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:justify-center gap-4">
+        <div className="w-full lg:w-[calc(25%-12px)]">
+          {/* Needs Improvement */}
+          <DashboardStatCard
+            title="Needs Improvement"
+            value={`${(stats.needs_improvement_percentage ?? 0).toFixed(1)}%`}
+            subtitle={`${stats.needs_improvement_count} evaluation(s)`}
+            icon={<AlertTriangle className="w-5 h-5" />}
+            accentColor="amber"
+          />
+        </div>
 
-      {/* Needs Improvement */}
-      <DashboardStatCard
-        title="Needs Improvement"
-        value={`${(stats.needs_improvement_percentage ?? 0).toFixed(1)}%`}
-        subtitle={`${stats.needs_improvement_count} evaluation(s)`}
-        icon={<AlertTriangle className="w-5 h-5" />}
-        accentColor="amber"
-      />
+        <div className="w-full lg:w-[calc(25%-12px)]">
+          {/* Batch Evaluation Jobs */}
+          <DashboardStatCard
+            title="Total Batch Jobs"
+            value={stats.total_batch_jobs}
+            subtitle={`Avg batch size: ${stats.average_batch_size.toFixed(0)} items`}
+            icon={<Layers className="w-5 h-5" />}
+            accentColor="blue"
+          />
+        </div>
 
-      {/* Batch Evaluation Jobs */}
-      <DashboardStatCard
-        title="Total Batch Jobs"
-        value={stats.total_batch_jobs}
-        subtitle={`Avg batch size: ${stats.average_batch_size.toFixed(0)} items`}
-        icon={<Layers className="w-5 h-5" />}
-        accentColor="blue"
-      />
-
-      {/* 24h Activity */}
-      <DashboardStatCard
-        title="24h Activity"
-        value={stats.recent_activity_count}
-        subtitle="Evaluations in last 24 hours"
-        icon={<Activity className="w-5 h-5" />}
-        accentColor="emerald"
-      />
+        <div className="w-full lg:w-[calc(25%-12px)]">
+          {/* 24h Activity */}
+          <DashboardStatCard
+            title="24h Activity"
+            value={stats.recent_activity_count}
+            subtitle="Evaluations in last 24 hours"
+            icon={<Activity className="w-5 h-5" />}
+            accentColor="emerald"
+          />
+        </div>
+      </div>
     </div>
   )
 }

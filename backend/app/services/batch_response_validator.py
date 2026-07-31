@@ -55,10 +55,6 @@ class BatchResponseValidator:
         if hal_val is not None and not (1 <= float(hal_val) <= 5):
             raise ValueError(f"Item '{item_id}': 'hallucination_score' must be between 1 and 5 or null (got {hal_val}).")
 
-        conf_val = item.get("confidence", 1.0)
-        if not (0.0 <= float(conf_val) <= 1.0):
-            raise ValueError(f"Item '{item_id}': 'confidence' must be between 0.0 and 1.0 (got {conf_val}).")
-
         reasoning = item.get("reasoning", "")
         if not isinstance(reasoning, str):
             reasoning = str(reasoning)
@@ -69,6 +65,5 @@ class BatchResponseValidator:
             "accuracy_score": float(item["accuracy_score"]),
             "hallucination_score": float(hal_val) if hal_val is not None else None,
             "completeness_score": float(item["completeness_score"]),
-            "confidence": float(conf_val),
             "reasoning": reasoning.strip(),
         }

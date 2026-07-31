@@ -289,7 +289,6 @@ class BatchEvaluationService:
         rel_score = float(res_data.get("relevance_score", 3.0))
         acc_score = float(res_data.get("accuracy_score", 3.0))
         comp_score = float(res_data.get("completeness_score", 3.0))
-        confidence = float(res_data.get("confidence", 0.90))
         reasoning = res_data.get("reasoning", "Evaluation complete.")
 
         hal_score_raw = res_data.get("hallucination_score")
@@ -334,7 +333,6 @@ class BatchEvaluationService:
             accuracy_score=acc_score,
             hallucination_score=hal_score,
             completeness_score=comp_score,
-            confidence=confidence,
             overall_score=overall_score,
             verdict=verdict,
             reasoning=reasoning,

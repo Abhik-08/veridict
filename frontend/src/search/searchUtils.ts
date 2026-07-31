@@ -63,7 +63,6 @@ export function defaultDocumentExtractor(item: any): EvaluationSearchDocument {
   const relevanceScore = item.relevance_score ?? item.relevanceScore ?? item.relevance_evaluation?.relevance_score ?? null
   const completenessScore = item.completeness_score ?? item.completenessScore ?? item.completeness_evaluation?.completeness_score ?? null
   const hallucinationScore = item.hallucination_score ?? item.hallucinationScore ?? item.hallucination_evaluation?.hallucination_score ?? null
-  const confidence = item.confidence ?? null
 
   const filename = item.filename || item.batchFileMetadata?.name || null
   const createdAt = item.created_at || item.createdAt || null
@@ -84,7 +83,6 @@ export function defaultDocumentExtractor(item: any): EvaluationSearchDocument {
     relevanceScore,
     completenessScore,
     hallucinationScore,
-    confidence,
     createdAt,
     formattedDate: formatSearchableDate(createdAt),
   }

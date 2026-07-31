@@ -17,14 +17,7 @@ def validate_score_range(score_min: Optional[float] = None, score_max: Optional[
         raise InvalidFilterException("'score_min' cannot be greater than 'score_max'.")
 
 
-def validate_confidence_range(confidence_min: Optional[float] = None, confidence_max: Optional[float] = None) -> None:
-    """Validates 0-1 numerical confidence score range limits."""
-    if confidence_min is not None and (confidence_min < 0.0 or confidence_min > 1.0):
-        raise InvalidFilterException("Parameter 'confidence_min' must be between 0.0 and 1.0.")
-    if confidence_max is not None and (confidence_max < 0.0 or confidence_max > 1.0):
-        raise InvalidFilterException("Parameter 'confidence_max' must be between 0.0 and 1.0.")
-    if confidence_min is not None and confidence_max is not None and confidence_min > confidence_max:
-        raise InvalidFilterException("'confidence_min' cannot be greater than 'confidence_max'.")
+
 
 
 def validate_date_range(date_from: Optional[datetime] = None, date_to: Optional[datetime] = None) -> None:

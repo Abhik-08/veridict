@@ -7,7 +7,6 @@ export interface HistoryItemResponse {
   ai_response: string
   reference_answer?: string | null
   overall_score: number
-  confidence?: number | null
   verdict: string
   source_type: string
   batch_job_id?: string | null
@@ -28,7 +27,6 @@ export interface BatchHistoryResponse {
   total_items: number
   completed_items: number
   average_score?: number
-  average_confidence?: number
   created_at: string
   updated_at: string
 }
@@ -64,8 +62,6 @@ export interface HistoryFilterParams {
   date_to?: string
   score_min?: number
   score_max?: number
-  confidence_min?: number
-  confidence_max?: number
 }
 
 export const historyService = {

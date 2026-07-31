@@ -31,7 +31,6 @@ REQUIRED JSON FORMAT:
     "accuracy_score": 5,
     "hallucination_score": 5,
     "completeness_score": 5,
-    "confidence": 0.95,
     "reasoning": "Response directly addresses all aspects of the query accurately."
   }
 ]

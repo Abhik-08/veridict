@@ -27,7 +27,6 @@ export interface EvaluationSearchDocument {
   relevanceScore?: number | null
   completenessScore?: number | null
   hallucinationScore?: number | null
-  confidence?: number | null
   createdAt?: string | Date | null
   formattedDate?: string | null
   searchableText?: string
@@ -37,7 +36,6 @@ export interface SearchFilter {
   verdict?: VerdictType | 'ALL'
   minScore?: number
   maxScore?: number
-  minConfidence?: number
   startDate?: string | Date
   endDate?: string | Date
   batchId?: string
@@ -45,7 +43,7 @@ export interface SearchFilter {
 }
 
 export interface SortOptions {
-  field?: 'relevance' | 'score' | 'confidence' | 'createdAt' | 'id' | (string & {})
+  field?: 'relevance' | 'score' | 'createdAt' | 'id' | (string & {})
   order?: 'asc' | 'desc'
 }
 

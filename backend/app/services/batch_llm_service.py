@@ -2,7 +2,7 @@
 Veridict Batch LLM Evaluation Service.
 
 Evaluates a batch of up to 3 QA pairs in ONE combined Gemini API call.
-Parses structured JSON containing dimension scores, confidence, and reasoning
+Parses structured JSON containing dimension scores and reasoning
 for each QA pair independently.
 """
 

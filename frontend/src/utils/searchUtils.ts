@@ -29,9 +29,8 @@ function scoreContentMatches(item: BatchItemEvaluationResult, query: string): nu
   if (verdict?.includes(query) || item.verdict?.toLowerCase().includes(query)) score += 20
 
   const overallStr = item.overall_score !== undefined ? item.overall_score.toFixed(2) : ''
-  const confidenceStr = item.confidence !== undefined ? `${(item.confidence * 100).toFixed(0)}%` : ''
   const id = item.id?.toLowerCase()
-  if (overallStr?.includes(query) || confidenceStr?.includes(query) || id?.includes(query)) {
+  if (overallStr?.includes(query) || id?.includes(query)) {
     score += 15
   }
 

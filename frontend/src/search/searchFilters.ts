@@ -41,12 +41,6 @@ function _matchDocFilters(doc: EvaluationSearchDocument, filters: SearchFilter):
     return false
   }
 
-  if (filters.minConfidence !== undefined && filters.minConfidence !== null) {
-    if (doc.confidence === null || doc.confidence === undefined || doc.confidence < filters.minConfidence) {
-      return false
-    }
-  }
-
   if (filters.batchId && doc.batchId !== filters.batchId) return false
   if (filters.evidenceSource && doc.evidenceSource !== filters.evidenceSource) return false
 

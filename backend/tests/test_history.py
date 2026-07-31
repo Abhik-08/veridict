@@ -64,7 +64,6 @@ def test_history_mapper_transformations():
         "reference": "RAG evaluation ground truth",
         "evidence_chunks": [{"chunk_id": 101, "content": "Evidence text"}],
         "score": 4.8,
-        "confidence": 0.96,
         "verdict": "pass",
         "evaluation_result": {
             "relevance": {"score": 5.0, "reasoning": "Perfect context relevance"},
@@ -78,7 +77,6 @@ def test_history_mapper_transformations():
     assert item_create.reference_answer == "RAG evaluation ground truth"
     assert item_create.retrieved_evidence == [{"chunk_id": 101, "content": "Evidence text"}]
     assert item_create.overall_score == 4.8
-    assert item_create.confidence == 0.96
     assert item_create.verdict == "PASS"
     assert item_create.source_type == "SINGLE"
 
@@ -117,7 +115,6 @@ def test_history_repository_and_service_crud():
             retrieved_evidence=[{"text": "Veridict documentation chunk"}],
             evaluation_result=eval_payload,
             overall_score=4.75,
-            confidence=0.95,
             verdict=EvaluationVerdict.PASS.value,
             source_type=EvaluationSource.SINGLE.value,
             batch_job_id=batch.id,
@@ -194,7 +191,6 @@ def test_history_phase3_api_endpoints():
             "verdict": "PASS",
         },
         "overall_score": 4.5,
-        "confidence": 0.95,
         "verdict": "PASS",
         "source_type": "SINGLE",
     }

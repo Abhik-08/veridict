@@ -18,7 +18,6 @@ from app.common.types import (
     PageSize,
     DateRange,
     ScoreRange,
-    ConfidenceRange,
 )
 from app.common.models import (
     RequestMetadata,
@@ -56,7 +55,6 @@ __all__ = [
     "PageSize",
     "DateRange",
     "ScoreRange",
-    "ConfidenceRange",
     "RequestMetadata",
     "ResponseMetadata",
     "PaginationMetadata",

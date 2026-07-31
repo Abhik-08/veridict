@@ -11,7 +11,6 @@ export interface DashboardStatistics {
   fail_percentage?: number
   needs_improvement_percentage?: number
   average_score: number
-  average_confidence: number
   highest_score?: number
   lowest_score?: number
   average_batch_size: number

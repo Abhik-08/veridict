@@ -42,7 +42,6 @@ class BatchStatisticsService:
                 "avg_hallucination": 0.0,
                 "avg_completeness": 0.0,
                 "avg_overall_score": 0.0,
-                "avg_confidence": 0.0,
                 "elapsed_seconds": round(elapsed_seconds, 2),
                 "gemini_calls": gemini_calls,
             }
@@ -59,7 +58,6 @@ class BatchStatisticsService:
         hal_scores = [i.hallucination_score for i in completed_items if i.hallucination_score is not None]
         comp_scores = [i.completeness_score for i in completed_items if i.completeness_score is not None]
         overall_scores = [i.overall_score for i in completed_items if i.overall_score is not None]
-        conf_scores = [i.confidence for i in completed_items if i.confidence is not None]
 
         return {
             "total_items": total_items,
@@ -72,7 +70,6 @@ class BatchStatisticsService:
             "avg_hallucination": round(sum(hal_scores) / len(hal_scores), 2) if hal_scores else 0.0,
             "avg_completeness": round(sum(comp_scores) / len(comp_scores), 2) if comp_scores else 0.0,
             "avg_overall_score": round(sum(overall_scores) / len(overall_scores), 2) if overall_scores else 0.0,
-            "avg_confidence": round(sum(conf_scores) / len(conf_scores), 2) if conf_scores else 0.0,
             "elapsed_seconds": round(elapsed_seconds, 2),
             "gemini_calls": gemini_calls,
         }

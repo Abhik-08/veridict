@@ -299,11 +299,6 @@ const MetricCardsGrid: React.FC<{ items: BatchItemEvaluationResult[]; progress: 
   const avgOverall =
     totalCount > 0 ? (items.reduce((acc, i) => acc + (i.overall_score || 0), 0) / totalCount).toFixed(2) : '0.00'
 
-  const avgConfidence =
-    totalCount > 0
-      ? ((items.reduce((acc, i) => acc + (i.confidence ?? 0.9), 0) / totalCount) * 100).toFixed(0)
-      : '0'
-
   const elapsedSeconds = progress.elapsed_seconds || (progress.statistics?.elapsed_seconds ?? null)
 
   const metrics = [
@@ -312,12 +307,11 @@ const MetricCardsGrid: React.FC<{ items: BatchItemEvaluationResult[]; progress: 
     { label: 'Needs Imp', val: impCount, icon: AlertTriangle, color: 'text-amber-400', tooltip: 'Responses requiring minor revisions' },
     { label: 'Failed', val: failCount, icon: XCircle, color: 'text-rose-400', tooltip: 'Responses with major factual issues' },
     { label: 'Avg Score', val: `${avgOverall} / 5`, icon: BarChart3, color: 'text-white', tooltip: 'Weighted average evaluation score across 4 dimensions' },
-    { label: 'Avg Confidence', val: `${avgConfidence}%`, icon: Check, color: 'text-slate-200', tooltip: 'Average confidence returned by Gemini judge models' },
     { label: 'Duration', val: elapsedSeconds ? `${elapsedSeconds}s` : 'Active', icon: Clock, color: 'text-slate-200', tooltip: 'Total evaluation wall-clock duration' },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
       {metrics.map((m) => {
         const Icon = m.icon
         return (
@@ -504,10 +498,6 @@ const BatchTableRow: React.FC<{
 
       <td className="px-3.5 py-3.5 align-top">
         <SoftVerdictBadge verdict={item.verdict} />
-      </td>
-
-      <td className="px-3.5 py-3.5 font-mono text-xs text-slate-400 align-top">
-        {item.confidence !== undefined ? `${(item.confidence * 100).toFixed(0)}%` : '-'}
       </td>
     </tr>
   )

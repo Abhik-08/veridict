@@ -12,7 +12,7 @@ export function HistorySorting({
   sortOrder,
   onSortByChange,
   onSortOrderChange,
-}: HistorySortingProps) {
+}: Readonly<HistorySortingProps>) {
   const toggleOrder = () => {
     onSortOrderChange(sortOrder === 'ASC' ? 'DESC' : 'ASC')
   }
@@ -31,7 +31,6 @@ export function HistorySorting({
       >
         <option value="created_at">Date Created</option>
         <option value="overall_score">Overall Score</option>
-        <option value="confidence">Confidence</option>
         <option value="question">Question</option>
         <option value="verdict">Verdict</option>
       </select>

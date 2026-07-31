@@ -13,7 +13,6 @@ PageSize: TypeAlias = Annotated[int, Field(ge=1, le=100, description="Items per 
 
 DateRange: TypeAlias = Tuple[Optional[str], Optional[str]]
 ScoreRange: TypeAlias = Tuple[Optional[float], Optional[float]]
-ConfidenceRange: TypeAlias = Tuple[Optional[float], Optional[float]]
 
 
 class SortOrderEnum(str, Enum):

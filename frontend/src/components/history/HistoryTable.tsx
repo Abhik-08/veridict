@@ -101,7 +101,6 @@ export function HistoryTable({
               <th className="py-3.5 px-4">Question / Prompt</th>
               <th className="py-3.5 px-4">Verdict</th>
               <th className="py-3.5 px-4">Score</th>
-              <th className="py-3.5 px-4">Confidence</th>
               <th className="py-3.5 px-4">Source</th>
               <th className="py-3.5 px-4">Created Date</th>
               <th className="py-3.5 px-4 text-right">Actions</th>
@@ -140,7 +139,6 @@ export function HistoryTable({
             <th className="py-3.5 px-4 min-w-[260px]">Question / Prompt</th>
             <th className="py-3.5 px-4 min-w-[130px]">Verdict</th>
             <th className="py-3.5 px-4">Score</th>
-            <th className="py-3.5 px-4">Confidence</th>
             <th className="py-3.5 px-4">Source</th>
             <th className="py-3.5 px-4 min-w-[140px]">Created Date</th>
             <th className="py-3.5 px-4 text-right">Actions</th>
@@ -187,12 +185,6 @@ export function HistoryTable({
                     {item.overall_score !== undefined ? item.overall_score.toFixed(1) : '-'}
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium"> / 5.0</span>
-                </td>
-
-                <td className="py-3.5 px-4 whitespace-nowrap text-slate-300 font-medium">
-                  {item.confidence !== undefined && item.confidence !== null
-                    ? `${(item.confidence * 100).toFixed(0)}%`
-                    : '-'}
                 </td>
 
                 <td className="py-3.5 px-4 whitespace-nowrap">{getSourceBadge(item.source_type)}</td>

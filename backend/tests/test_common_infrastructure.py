@@ -24,7 +24,6 @@ from app.common.utils import (
     build_pagination_metadata,
     validate_and_normalize_sort,
     validate_score_range,
-    validate_confidence_range,
     validate_date_range,
     utcnow,
     format_iso_timestamp,
@@ -79,8 +78,6 @@ def test_sorting_and_filtering_utilities():
     validate_score_range(1.0, 4.5)
     with pytest.raises(InvalidFilterException):
         validate_score_range(4.5, 1.0)
-
-    validate_confidence_range(0.1, 0.9)
 
 
 def test_exception_hierarchy():

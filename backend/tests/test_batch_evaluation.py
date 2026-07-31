@@ -233,7 +233,6 @@ class TestBatchEvaluationService:
             "accuracy_score": 5.0,
             "hallucination_score": 5.0,
             "completeness_score": 5.0,
-            "confidence": 0.95,
             "reasoning": "Excellent quality response.",
         }
 
@@ -255,7 +254,6 @@ class TestBatchEvaluationService:
             "accuracy_score": 4.0,
             "hallucination_score": 3.0,
             "completeness_score": 3.0,
-            "confidence": 0.85,
             "reasoning": "Acceptable but incomplete.",
         }
 
@@ -276,7 +274,6 @@ class TestBatchEvaluationService:
             "accuracy_score": 1.0,
             "hallucination_score": 1.0,
             "completeness_score": 1.0,
-            "confidence": 0.99,
             "reasoning": "Factual hallucination.",
         }
 
@@ -313,7 +310,6 @@ class TestBatchReportGenerator:
                 accuracy_score=5.0,
                 hallucination_score=5.0,
                 completeness_score=5.0,
-                confidence=0.95,
                 overall_score=5.0,
                 verdict="PASS",
                 reasoning="Great",

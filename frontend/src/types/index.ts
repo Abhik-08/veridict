@@ -102,7 +102,6 @@ export interface BatchItemEvaluationResult {
   accuracy_score: number
   hallucination_score: number | null
   completeness_score: number
-  confidence: number
   overall_score: number
   verdict: 'PASS' | 'NEEDS_IMPROVEMENT' | 'FAIL'
   reasoning: string

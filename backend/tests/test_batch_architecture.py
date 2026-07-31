@@ -74,7 +74,6 @@ class TestBatchResponseValidator:
                 "accuracy_score": 5,
                 "hallucination_score": 5,
                 "completeness_score": 5,
-                "confidence": 0.95,
                 "reasoning": "Excellent answer."
             }
         ]
@@ -92,7 +91,6 @@ class TestBatchResponseValidator:
                 "relevance_score": 10,
                 "accuracy_score": 5,
                 "completeness_score": 5,
-                "confidence": 0.95,
                 "reasoning": "Invalid score"
             }
         ]
@@ -114,7 +112,6 @@ class TestBatchStatisticsService:
                 completeness_score=5.0,
                 overall_score=5.0,
                 verdict="PASS",
-                confidence=1.0,
             ),
             BatchItemEvaluationResult(
                 id="QA-02",
@@ -126,7 +123,6 @@ class TestBatchStatisticsService:
                 completeness_score=2.0,
                 overall_score=2.0,
                 verdict="FAIL",
-                confidence=0.8,
             ),
         ]
         stats = BatchStatisticsService.calculate_statistics(items=items, elapsed_seconds=1.5, gemini_calls=1)

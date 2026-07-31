@@ -90,7 +90,7 @@ export function EvaluationDetailModal({
     return (
       <>
         {/* Top Overview Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col justify-between">
             <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
               Verdict
@@ -107,17 +107,6 @@ export function EvaluationDetailModal({
                 {detail.overall_score !== undefined ? detail.overall_score.toFixed(1) : '-'}
               </span>
               <span className="text-xs text-slate-500 font-semibold">/ 5.0</span>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col justify-between">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-              Confidence
-            </span>
-            <div className="mt-1 text-xl font-bold text-slate-200">
-              {detail.confidence !== undefined && detail.confidence !== null
-                ? `${(detail.confidence * 100).toFixed(0)}%`
-                : '-'}
             </div>
           </div>
 

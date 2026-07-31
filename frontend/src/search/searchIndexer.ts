@@ -24,7 +24,6 @@ export function buildSearchDocument<T extends object>(
   const doc = extractor ? extractor(item) : defaultDocumentExtractor(item)
 
   const overallStr = doc.overallScore !== null && doc.overallScore !== undefined ? doc.overallScore.toFixed(2) : ''
-  const confidenceStr = doc.confidence !== null && doc.confidence !== undefined ? `${(doc.confidence * 100).toFixed(0)}%` : ''
   const verdictStr = doc.verdict ? doc.verdict.replaceAll('_', ' ') : ''
 
   const fieldsToCombine = [
@@ -44,7 +43,6 @@ export function buildSearchDocument<T extends object>(
     doc.batchId,
     doc.filename,
     overallStr,
-    confidenceStr,
     doc.formattedDate,
   ].filter(Boolean)
 

@@ -30,7 +30,6 @@ class HistoryRepository:
             retrieved_evidence=data.retrieved_evidence,
             evaluation_result=data.evaluation_result,
             overall_score=data.overall_score,
-            confidence=data.confidence,
             verdict=data.verdict,
             source_type=data.source_type,
             batch_job_id=data.batch_job_id,
@@ -111,10 +110,6 @@ class HistoryRepository:
             query = query.filter(Evaluation.overall_score >= params.score_min)
         if params.score_max is not None:
             query = query.filter(Evaluation.overall_score <= params.score_max)
-        if params.confidence_min is not None:
-            query = query.filter(Evaluation.confidence >= params.confidence_min)
-        if params.confidence_max is not None:
-            query = query.filter(Evaluation.confidence <= params.confidence_max)
         if params.date_from is not None:
             query = query.filter(Evaluation.created_at >= params.date_from)
         if params.date_to is not None:
@@ -209,7 +204,6 @@ class HistoryRepository:
                 fail_count=0,
                 pass_percentage=0.0,
                 average_score=0.0,
-                average_confidence=0.0,
                 average_batch_size=0.0,
                 recent_activity_count=0,
             )
@@ -223,12 +217,10 @@ class HistoryRepository:
         needs_improvement_percentage = round((needs_improvement_count / total_evaluations) * 100.0, 2)
 
         avg_score_res = db.query(func.avg(Evaluation.overall_score)).filter(Evaluation.user_id == user_id).scalar()
-        avg_conf_res = db.query(func.avg(Evaluation.confidence)).filter(Evaluation.user_id == user_id).scalar()
         max_score_res = db.query(func.max(Evaluation.overall_score)).filter(Evaluation.user_id == user_id).scalar()
         min_score_res = db.query(func.min(Evaluation.overall_score)).filter(Evaluation.user_id == user_id).scalar()
 
         average_score = round(float(avg_score_res), 2) if avg_score_res is not None else 0.0
-        average_confidence = round(float(avg_conf_res), 2) if avg_conf_res is not None else 0.0
         highest_score = round(float(max_score_res), 2) if max_score_res is not None else 0.0
         lowest_score = round(float(min_score_res), 2) if min_score_res is not None else 0.0
 
@@ -250,7 +242,6 @@ class HistoryRepository:
             fail_percentage=fail_percentage,
             needs_improvement_percentage=needs_improvement_percentage,
             average_score=average_score,
-            average_confidence=average_confidence,
             highest_score=highest_score,
             lowest_score=lowest_score,
             average_batch_size=average_batch_size,

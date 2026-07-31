@@ -34,28 +34,22 @@ class HistoryMapper:
         return None
 
     @staticmethod
-    def _extract_scores_and_verdict(evaluation_data: Dict[str, Any]) -> tuple[float, Optional[float], str]:
-        """Extracts numerical overall score, confidence, and verdict string."""
+    def _extract_scores_and_verdict(evaluation_data: Dict[str, Any]) -> tuple[float, str]:
+        """Extracts numerical overall score and verdict string."""
         verdict_obj = evaluation_data.get("verdict_evaluation") or {}
         default_verdict = EvaluationVerdict.NEEDS_IMPROVEMENT.value
 
         if isinstance(verdict_obj, dict) and verdict_obj:
             score_val = evaluation_data.get("overall_score")
             score_raw = score_val if score_val is not None else verdict_obj.get("overall_score", evaluation_data.get("score", 0.0))
-
-            conf_val = evaluation_data.get("confidence")
-            confidence_raw = conf_val if conf_val is not None else verdict_obj.get("confidence")
-
             verdict_raw = evaluation_data.get("verdict") or verdict_obj.get("verdict") or default_verdict
         else:
             score_raw = evaluation_data.get("overall_score", evaluation_data.get("score", 0.0))
-            confidence_raw = evaluation_data.get("confidence")
             verdict_raw = evaluation_data.get("verdict", default_verdict)
 
         overall_score = float(score_raw)
-        confidence = float(confidence_raw) if confidence_raw is not None else None
         verdict = str(verdict_raw).upper()
-        return overall_score, confidence, verdict
+        return overall_score, verdict
 
     @staticmethod
     def to_history_item_create(
@@ -75,7 +69,7 @@ class HistoryMapper:
 
         retrieved_evidence = HistoryMapper._extract_evidence(evaluation_data)
         eval_result = evaluation_data.get("evaluation_result") or evaluation_data.get("verdict_evaluation") or evaluation_data
-        overall_score, confidence, verdict = HistoryMapper._extract_scores_and_verdict(evaluation_data)
+        overall_score, verdict = HistoryMapper._extract_scores_and_verdict(evaluation_data)
 
         return HistoryItemCreate(
             question=question,
@@ -84,7 +78,6 @@ class HistoryMapper:
             retrieved_evidence=retrieved_evidence,
             evaluation_result=eval_result,
             overall_score=overall_score,
-            confidence=confidence,
             verdict=verdict,
             source_type=source_str,
             batch_job_id=batch_job_id,

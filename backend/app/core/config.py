@@ -9,15 +9,17 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
     JWT_DEBUG_LOGGING: bool = False
-    BACKEND_CORS_ORIGINS: str = "http://localhost:5173"
+    BACKEND_CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,https://veridict-amber.vercel.app"
 
     @property
     def cors_origins(self) -> list[str]:
-        return [
-            origin.strip()
-            for origin in self.BACKEND_CORS_ORIGINS.split(",")
-            if origin.strip()
-        ]
+        origins = []
+        if self.BACKEND_CORS_ORIGINS:
+            for origin in self.BACKEND_CORS_ORIGINS.split(","):
+                cleaned = origin.strip().rstrip("/")
+                if cleaned:
+                    origins.append(cleaned)
+        return origins
 
     # ==============================
     # AI & LLM Settings

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { authManager } from '@/lib/authManager'
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, ''),
   timeout: 30000,
 })
 
@@ -11,13 +11,22 @@ export const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      // Check whether Authorization header already exists
-      const existingAuth = config.headers.Authorization || config.headers.authorization
+      // Check whether Authorization header already exists safely across Axios versions
+      const headers = config.headers
+      const existingAuth =
+        headers?.Authorization ||
+        headers?.authorization ||
+        (typeof headers?.get === 'function' ? headers.get('Authorization') || headers.get('authorization') : null)
+
       if (!existingAuth) {
         const { data } = await supabase.auth.getSession()
         const token = data.session?.access_token
         if (token) {
-          config.headers.Authorization = `Bearer ${token}`
+          if (typeof headers?.set === 'function') {
+            headers.set('Authorization', `Bearer ${token}`)
+          } else if (headers) {
+            headers.Authorization = `Bearer ${token}`
+          }
         }
       }
     } catch (err) {
@@ -25,9 +34,7 @@ api.interceptors.request.use(
     }
     return config
   },
-  (error) => {
-    throw error
-  }
+  (error) => Promise.reject(error)
 )
 
 // Response Interceptor: Handle 401/403 session expiration via Centralized Auth Manager

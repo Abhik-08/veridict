@@ -112,7 +112,7 @@ def root():
     }
 
 
-@app.get("/health", summary="Health Check", description="Returns system health status.")
+@app.api_route("/health", methods=["GET", "HEAD"], summary="Health Check", description="Returns system health status.")
 def health():
     """Health check endpoint."""
     return {

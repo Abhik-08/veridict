@@ -2,9 +2,12 @@ import axios from 'axios'
 import { supabase } from '@/lib/supabase'
 import { authManager } from '@/lib/authManager'
 
+const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000').trim()
+const baseURL = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl
+
 export const api = axios.create({
-  baseURL: (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, ''),
-  timeout: 30000,
+  baseURL,
+  timeout: 60000, // 60s timeout to accommodate cold starts on free-tier backend hosting (Render/Railway/Koyeb)
 })
 
 // Request Interceptor: Inject JWT token into Authorization header if not already present

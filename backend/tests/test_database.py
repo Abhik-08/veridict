@@ -39,6 +39,16 @@ def setup_database():
     Base.metadata.drop_all(bind=test_engine)
 
 
+def test_health_endpoint():
+    client = TestClient(app)
+    get_res = client.get("/health")
+    assert get_res.status_code == 200
+    assert get_res.json() == {"status": "healthy"}
+
+    head_res = client.head("/health")
+    assert head_res.status_code == 200
+
+
 def test_db_health_endpoint():
     client = TestClient(app)
     response = client.get("/db-health")

@@ -114,6 +114,238 @@ class CSVBatchExporter(BaseBatchExporter):
 class PDFBatchExporter(BaseBatchExporter):
     """Exports evaluated batch results to executive PDF format."""
 
+    @staticmethod
+    def _build_header(progress: BatchProgress, gen_time: str, styles: Any) -> list[Any]:
+        if os.path.exists(LOGO_PATH):
+            logo_img = RLImage(LOGO_PATH, width=28, height=28)
+            logo_text = Paragraph(
+                "<font color='#F97316' size='16'><b>VERIDICT</b></font><br/>"
+                "<font color='#64748B' size='7.5'>AI Response Quality Evaluator</font>",
+                styles["Normal"],
+            )
+            brand_box = Table([[logo_img, logo_text]], colWidths=[34, 236])
+            brand_box.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+            logo_elem = brand_box
+        else:
+            logo_elem = Paragraph(
+                "<font color='#F97316' size='16'><b>VERIDICT</b></font><br/>"
+                "<font color='#64748B' size='7.5'>AI Response Quality Evaluator</font>",
+                styles["Normal"],
+            )
+
+        meta_info = Paragraph(
+            f"<font color='#0F172A' size='8.5'><b>Batch ID:</b> {progress.batch_id}</font><br/>"
+            f"<font color='#64748B' size='7.5'><b>Generated:</b> {gen_time}</font>",
+            ParagraphStyle("RAlign", parent=styles["Normal"], alignment=2),
+        )
+        header_table = Table([[logo_elem, meta_info]], colWidths=[270, 270])
+        header_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        return [
+            header_table,
+            Spacer(1, 6),
+            HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#F97316"), spaceAfter=10),
+        ]
+
+    @staticmethod
+    def _build_summary_metrics(items: list[BatchItemEvaluationResult], body_style: Any) -> Table:
+        pass_count = sum(1 for i in items if i.verdict == "PASS")
+        needs_imp_count = sum(1 for i in items if i.verdict == "NEEDS_IMPROVEMENT")
+        fail_count = sum(1 for i in items if i.verdict == "FAIL" or i.status == "FAILED")
+        avg_score = (sum(i.overall_score for i in items) / len(items)) if items else 0.0
+        pass_rate = (pass_count / len(items) * 100) if items else 0.0
+
+        metrics_data = [
+            [
+                Paragraph("<b>Total Processed</b>", body_style),
+                Paragraph("<b>Average Score</b>", body_style),
+                Paragraph("<b>Pass Rate</b>", body_style),
+                Paragraph("<b>Pass / Imp / Fail</b>", body_style),
+            ],
+            [
+                Paragraph(f"<font size='14'><b>{len(items)}</b></font>", body_style),
+                Paragraph(f"<font size='14'><b>{avg_score:.2f} / 5.00</b></font>", body_style),
+                Paragraph(f"<font size='14' color='#15803D'><b>{pass_rate:.1f}%</b></font>", body_style),
+                Paragraph(f"<font size='12'><b>{pass_count} / {needs_imp_count} / {fail_count}</b></font>", body_style),
+            ],
+        ]
+        metrics_table = Table(metrics_data, colWidths=[135, 135, 135, 135])
+        metrics_table.setStyle(
+            TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+                ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#CBD5E1")),
+                ("PADDING", (0, 0), (-1, -1), 7),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ])
+        )
+        return metrics_table
+
+    @staticmethod
+    def _build_results_table(items: list[BatchItemEvaluationResult], body_style: Any) -> Table:
+        headers = [
+            Paragraph("<b>ID</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            Paragraph("<b>Question</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            Paragraph("<b>Rel</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            Paragraph("<b>Acc</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            Paragraph("<b>Hal</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            Paragraph("<b>Comp</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            Paragraph("<b>Score</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            Paragraph("<b>Verdict</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+        ]
+        table_rows = [headers]
+
+        for item in items:
+            q_short = item.question[:45] + "..." if len(item.question) > 45 else item.question
+            hal_str = f"{item.hallucination_score:.0f}" if item.hallucination_score is not None else "-"
+
+            if item.verdict == "PASS":
+                v_color = "#15803D"
+            elif item.verdict == "NEEDS_IMPROVEMENT":
+                v_color = "#B45309"
+            else:
+                v_color = "#B91C1C"
+
+            v_html = f"<font color='{v_color}'><b>{item.verdict.replace('_', ' ')}</b></font>"
+
+            table_rows.append([
+                Paragraph(item.id, body_style),
+                Paragraph(q_short, body_style),
+                Paragraph(f"{item.relevance_score:.0f}", body_style),
+                Paragraph(f"{item.accuracy_score:.0f}", body_style),
+                Paragraph(hal_str, body_style),
+                Paragraph(f"{item.completeness_score:.0f}", body_style),
+                Paragraph(f"<b>{item.overall_score:.2f}</b>", body_style),
+                Paragraph(v_html, body_style),
+            ])
+
+        results_table = Table(table_rows, colWidths=[45, 195, 35, 35, 35, 35, 45, 115])
+        results_table.setStyle(
+            TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+            ])
+        )
+        return results_table
+
+    @staticmethod
+    def _build_hallucination_analysis(
+        items: list[BatchItemEvaluationResult],
+        heading_style: Any,
+        body_style: Any,
+    ) -> list[Any]:
+        elements: list[Any] = [Paragraph("Hallucination Analysis", heading_style)]
+        hallucinated_items = [
+            i for i in items
+            if i.evidence_source != "NO_EVIDENCE"
+            and i.hallucination_score is not None
+            and i.hallucination_score < 4.0
+        ]
+
+        if hallucinated_items:
+            hal_headers = [
+                Paragraph("<b>ID</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+                Paragraph("<b>Question</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+                Paragraph("<b>Score</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+                Paragraph("<b>Reasoning / Grounding Feedback</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
+            ]
+            hal_rows = [hal_headers]
+            for h_item in hallucinated_items:
+                q_text = h_item.question[:45] + "..." if len(h_item.question) > 45 else h_item.question
+                r_text = h_item.reasoning[:75] + "..." if len(h_item.reasoning) > 75 else h_item.reasoning
+                hal_rows.append([
+                    Paragraph(h_item.id, body_style),
+                    Paragraph(q_text, body_style),
+                    Paragraph(f"<font color='#B91C1C'><b>{h_item.hallucination_score:.1f} / 5.0</b></font>", body_style),
+                    Paragraph(r_text, body_style),
+                ])
+            hal_table = Table(hal_rows, colWidths=[45, 175, 55, 265])
+            hal_table.setStyle(
+                TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#991B1B")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FEF2F2")]),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#FCA5A5")),
+                ])
+            )
+            elements.append(hal_table)
+        else:
+            no_hal_text = Paragraph(
+                "<font color='#15803D'><b>No hallucinated responses detected in this batch.</b></font> "
+                "<font color='#475569'>All evaluable items met the grounding threshold (Score ≥ 4.0).</font>",
+                body_style,
+            )
+            no_hal_box = Table([[no_hal_text]], colWidths=[540])
+            no_hal_box.setStyle(
+                TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F0FDF4")),
+                    ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#86EFAC")),
+                    ("PADDING", (0, 0), (-1, -1), 6),
+                ])
+            )
+            elements.append(no_hal_box)
+        return elements
+
+    @staticmethod
+    def _build_recommendations(
+        items: list[BatchItemEvaluationResult],
+        heading_style: Any,
+        body_style: Any,
+    ) -> list[Any]:
+        elements: list[Any] = [Paragraph("Improvement Recommendations", heading_style)]
+
+        avg_rel = (sum(i.relevance_score for i in items) / len(items)) if items else 5.0
+        avg_acc = (sum(i.accuracy_score for i in items) / len(items)) if items else 5.0
+        avg_comp = (sum(i.completeness_score for i in items) / len(items)) if items else 5.0
+        has_hallucinations = any(
+            i.evidence_source != "NO_EVIDENCE" and i.hallucination_score is not None and i.hallucination_score < 4.0
+            for i in items
+        )
+
+        recommendations = []
+        if any(i.relevance_score < 4.0 for i in items) or avg_rel < 4.0:
+            recommendations.append(
+                "<b>Relevance Alignment:</b> Refine response prompt instructions to directly answer target prompt questions without tangential details."
+            )
+        if any(i.accuracy_score < 4.0 for i in items) or avg_acc < 4.0:
+            recommendations.append(
+                "<b>Factual Verification:</b> Strengthen factual assertions against reference answers to prevent incorrect domain statements."
+            )
+        if any(i.completeness_score < 4.0 for i in items) or avg_comp < 4.0:
+            recommendations.append(
+                "<b>Completeness & Coverage:</b> Expand generation bounds to ensure all implicit sub-questions and key requirements are thoroughly addressed."
+            )
+        if has_hallucinations:
+            recommendations.append(
+                "<b>Grounding & Evidence:</b> Restrict model output to explicit retrieved context to eliminate ungrounded or unverified claims."
+            )
+        if not recommendations:
+            recommendations.append(
+                "<b>High Overall Quality:</b> All evaluated responses met high accuracy, relevance, completeness, and grounding benchmarks. Maintain current parameters."
+            )
+
+        rec_cells = [[Paragraph(f"• {rec}", body_style)] for rec in recommendations]
+        rec_table = Table(rec_cells, colWidths=[540])
+        rec_table.setStyle(
+            TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+                ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#CBD5E1")),
+                ("PADDING", (0, 0), (-1, -1), 6),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ])
+        )
+        elements.append(rec_table)
+        return elements
+
     def export(self, progress: BatchProgress) -> bytes:
         buffer = BytesIO()
         doc = SimpleDocTemplate(
@@ -168,129 +400,22 @@ class PDFBatchExporter(BaseBatchExporter):
         gen_time = now.strftime("%d %b %Y, %I:%M %p")
 
         story: list[Any] = []
-
-        # 1. Header
-        if os.path.exists(LOGO_PATH):
-            logo_img = RLImage(LOGO_PATH, width=28, height=28)
-            logo_text = Paragraph(
-                "<font color='#F97316' size='16'><b>VERIDICT</b></font><br/>"
-                "<font color='#64748B' size='7.5'>Batch Evaluation Engine</font>",
-                styles["Normal"],
-            )
-            brand_box = Table([[logo_img, logo_text]], colWidths=[34, 236])
-            brand_box.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-            logo_elem = brand_box
-        else:
-            logo_elem = Paragraph(
-                "<font color='#F97316' size='16'><b>VERIDICT</b></font><br/>"
-                "<font color='#64748B' size='7.5'>Batch Evaluation Engine</font>",
-                styles["Normal"],
-            )
-
-        meta_info = Paragraph(
-            f"<font color='#0F172A' size='8.5'><b>Batch ID:</b> {progress.batch_id}</font><br/>"
-            f"<font color='#64748B' size='7.5'><b>Generated:</b> {gen_time}</font>",
-            ParagraphStyle("RAlign", parent=styles["Normal"], alignment=2),
-        )
-        header_table = Table([[logo_elem, meta_info]], colWidths=[270, 270])
-        header_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-        story.append(header_table)
-        story.append(Spacer(1, 6))
-        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#F97316"), spaceAfter=10))
-
-        # 2. Title
+        story.extend(self._build_header(progress, gen_time, styles))
         story.append(Paragraph("Veridict Batch Evaluation Report", title_style))
         story.append(Paragraph(f"Dataset: {progress.filename} ({progress.total_rows} QA Pairs)", subtitle_style))
         story.append(Spacer(1, 10))
 
-        # 3. Summary Metrics Box
-        items = progress.items
-        pass_count = sum(1 for i in items if i.verdict == "PASS")
-        needs_imp_count = sum(1 for i in items if i.verdict == "NEEDS_IMPROVEMENT")
-        fail_count = sum(1 for i in items if i.verdict == "FAIL" or i.status == "FAILED")
-        avg_score = (sum(i.overall_score for i in items) / len(items)) if items else 0.0
-        pass_rate = (pass_count / len(items) * 100) if items else 0.0
-
-        metrics_data = [
-            [
-                Paragraph("<b>Total Processed</b>", body_style),
-                Paragraph("<b>Average Score</b>", body_style),
-                Paragraph("<b>Pass Rate</b>", body_style),
-                Paragraph("<b>Pass / Imp / Fail</b>", body_style),
-            ],
-            [
-                Paragraph(f"<font size='14'><b>{len(items)}</b></font>", body_style),
-                Paragraph(f"<font size='14'><b>{avg_score:.2f} / 5.00</b></font>", body_style),
-                Paragraph(f"<font size='14' color='#15803D'><b>{pass_rate:.1f}%</b></font>", body_style),
-                Paragraph(f"<font size='12'><b>{pass_count} / {needs_imp_count} / {fail_count}</b></font>", body_style),
-            ],
-        ]
-        metrics_table = Table(metrics_data, colWidths=[135, 135, 135, 135])
-        metrics_table.setStyle(
-            TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-                ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#CBD5E1")),
-                ("PADDING", (0, 0), (-1, -1), 7),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ])
-        )
-        story.append(metrics_table)
+        story.append(self._build_summary_metrics(progress.items, body_style))
         story.append(Spacer(1, 10))
 
-        # 4. Results Breakdown Table
         story.append(Paragraph("Dataset Items Evaluation Breakdown", heading_style))
+        story.append(self._build_results_table(progress.items, body_style))
+        story.append(Spacer(1, 12))
 
-        headers = [
-            Paragraph("<b>ID</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-            Paragraph("<b>Question</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-            Paragraph("<b>Rel</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-            Paragraph("<b>Acc</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-            Paragraph("<b>Hal</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-            Paragraph("<b>Comp</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-            Paragraph("<b>Score</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-            Paragraph("<b>Verdict</b>", ParagraphStyle("TH", fontName="Helvetica-Bold", fontSize=8, textColor=colors.white)),
-        ]
-        table_rows = [headers]
+        story.extend(self._build_hallucination_analysis(progress.items, heading_style, body_style))
+        story.append(Spacer(1, 12))
 
-        for item in items:
-            q_short = item.question[:45] + "..." if len(item.question) > 45 else item.question
-            hal_str = f"{item.hallucination_score:.0f}" if item.hallucination_score is not None else "-"
-
-            if item.verdict == "PASS":
-                v_color = "#15803D"
-            elif item.verdict == "NEEDS_IMPROVEMENT":
-                v_color = "#B45309"
-            else:
-                v_color = "#B91C1C"
-
-            v_html = f"<font color='{v_color}'><b>{item.verdict.replace('_', ' ')}</b></font>"
-
-            table_rows.append([
-                Paragraph(item.id, body_style),
-                Paragraph(q_short, body_style),
-                Paragraph(f"{item.relevance_score:.0f}", body_style),
-                Paragraph(f"{item.accuracy_score:.0f}", body_style),
-                Paragraph(hal_str, body_style),
-                Paragraph(f"{item.completeness_score:.0f}", body_style),
-                Paragraph(f"<b>{item.overall_score:.2f}</b>", body_style),
-                Paragraph(v_html, body_style),
-            ])
-
-        results_table = Table(table_rows, colWidths=[45, 195, 35, 35, 35, 35, 45, 115])
-        results_table.setStyle(
-            TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
-            ])
-        )
-        story.append(results_table)
+        story.extend(self._build_recommendations(progress.items, heading_style, body_style))
 
         doc.build(story, canvasmaker=NumberedCanvas)
         pdf_bytes = buffer.getvalue()

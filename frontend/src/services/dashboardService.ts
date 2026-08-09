@@ -95,7 +95,15 @@ export const dashboardService = {
   },
 
   async getAnalytics(params?: AnalyticsFilterParams): Promise<AnalyticsStatistics> {
-    const response = await api.get<AnalyticsStatistics>('/history/analytics', { params })
+    const cleanParams: Record<string, any> = {}
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '' && val !== 'ALL') {
+          cleanParams[key] = val
+        }
+      })
+    }
+    const response = await api.get<AnalyticsStatistics>('/history/analytics', { params: cleanParams })
     return response.data
   },
 }

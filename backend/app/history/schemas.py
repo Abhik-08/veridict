@@ -3,10 +3,10 @@ Pydantic Schemas for Evaluation History Foundation.
 Defines strict API request and response data contracts using Pydantic V2 ConfigDict.
 Inherits shared pagination models from app.common.models.pagination.
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.common.models.pagination import PaginationMetadata, PaginatedResponse
 
@@ -88,10 +88,32 @@ class HistoryFilterParams(BaseModel):
     source_type: Optional[str] = None
     sort_by: str = "created_at"
     sort_order: str = "DESC"
-    date_from: Optional[datetime] = None
-    date_to: Optional[datetime] = None
+    date_from: Optional[Union[datetime, date, str]] = None
+    date_to: Optional[Union[datetime, date, str]] = None
     score_min: Optional[float] = Field(None, ge=0.0, le=5.0)
     score_max: Optional[float] = Field(None, ge=0.0, le=5.0)
+
+    @field_validator("date_from", "date_to", mode="before")
+    @classmethod
+    def parse_flexible_datetime(cls, v: Any) -> Optional[datetime]:
+        if not v or v == "" or v == "null" or v == "undefined":
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, date):
+            return datetime.combine(v, datetime.min.time())
+        if isinstance(v, str):
+            v_str = v.strip()
+            if not v_str:
+                return None
+            try:
+                if len(v_str) == 10:
+                    d = date.fromisoformat(v_str)
+                    return datetime.combine(d, datetime.min.time())
+                return datetime.fromisoformat(v_str)
+            except ValueError:
+                return None
+        return None
 
 
 class DashboardStatistics(BaseModel):
@@ -114,11 +136,33 @@ class DashboardStatistics(BaseModel):
 
 class AnalyticsFilterParams(BaseModel):
     """Filter parameters for analytics endpoints."""
-    date_from: Optional[datetime] = None
-    date_to: Optional[datetime] = None
+    date_from: Optional[Union[datetime, date, str]] = None
+    date_to: Optional[Union[datetime, date, str]] = None
     source_type: Optional[str] = Field(None, description="Evaluation mode: SINGLE, BATCH, or ALL")
     verdict: Optional[str] = Field(None, description="Verdict filter: PASS, NEEDS_IMPROVEMENT, FAIL, or ALL")
     model: Optional[str] = Field(None, description="Model filter extracted from evaluation_result model_used")
+
+    @field_validator("date_from", "date_to", mode="before")
+    @classmethod
+    def parse_flexible_datetime(cls, v: Any) -> Optional[datetime]:
+        if not v or v == "" or v == "null" or v == "undefined":
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, date):
+            return datetime.combine(v, datetime.min.time())
+        if isinstance(v, str):
+            v_str = v.strip()
+            if not v_str:
+                return None
+            try:
+                if len(v_str) == 10:
+                    d = date.fromisoformat(v_str)
+                    return datetime.combine(d, datetime.min.time())
+                return datetime.fromisoformat(v_str)
+            except ValueError:
+                return None
+        return None
 
 
 class VerdictDistribution(BaseModel):

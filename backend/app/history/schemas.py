@@ -112,6 +112,74 @@ class DashboardStatistics(BaseModel):
     most_recent_evaluation: Optional[datetime] = Field(None, description="Timestamp of the most recent evaluation")
 
 
+class AnalyticsFilterParams(BaseModel):
+    """Filter parameters for analytics endpoints."""
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    source_type: Optional[str] = Field(None, description="Evaluation mode: SINGLE, BATCH, or ALL")
+    verdict: Optional[str] = Field(None, description="Verdict filter: PASS, NEEDS_IMPROVEMENT, FAIL, or ALL")
+    model: Optional[str] = Field(None, description="Model filter extracted from evaluation_result model_used")
+
+
+class VerdictDistribution(BaseModel):
+    """Verdict count and percentage distribution."""
+    pass_count: int = 0
+    needs_improvement_count: int = 0
+    fail_count: int = 0
+    pass_percentage: float = 0.0
+    needs_improvement_percentage: float = 0.0
+    fail_percentage: float = 0.0
+
+
+class AverageDimensionScores(BaseModel):
+    """Average scores across evaluation dimensions (1.0 to 5.0)."""
+    average_relevance: float = Field(0.0, description="Mean relevance score (1-5)")
+    average_accuracy: float = Field(0.0, description="Mean accuracy score (1-5)")
+    average_completeness: float = Field(0.0, description="Mean completeness score (1-5)")
+    average_overall_score: float = Field(0.0, description="Mean overall score (0-5)")
+
+
+class HallucinationMetrics(BaseModel):
+    """
+    Hallucination evaluation metrics.
+    Note: INSUFFICIENT_EVIDENCE status items are excluded from evaluable counts and NOT treated as hallucinated.
+    Hallucinated items are evaluable evaluations where hallucination_score < 4.
+    """
+    evaluable_count: int = Field(0, description="Total evaluations with evaluable hallucination status (SUCCESS)")
+    insufficient_evidence_count: int = Field(0, description="Total evaluations skipped due to INSUFFICIENT_EVIDENCE")
+    hallucinated_count: int = Field(0, description="Total evaluable evaluations with hallucination score < 4")
+    grounded_count: int = Field(0, description="Total evaluable evaluations with hallucination score >= 4")
+    hallucination_rate_percentage: float = Field(0.0, description="Percentage of evaluable responses containing hallucinations")
+    average_hallucination_score: float = Field(0.0, description="Mean hallucination score across evaluable items (1-5)")
+
+
+class QualityTrendPoint(BaseModel):
+    """Single point in time-series quality trend graph."""
+    date: str = Field(..., description="Time bucket string (YYYY-MM-DD)")
+    count: int = Field(0, description="Total evaluations in this time bucket")
+    average_score: float = Field(0.0, description="Average overall score in this time bucket")
+    pass_count: int = Field(0, description="PASS count in this time bucket")
+    needs_improvement_count: int = Field(0, description="NEEDS_IMPROVEMENT count in this time bucket")
+    fail_count: int = Field(0, description="FAIL count in this time bucket")
+
+
+class AvailableFilterMetadata(BaseModel):
+    """Metadata listing available filter options present in user's evaluation history."""
+    available_models: List[str] = Field(default_factory=list, description="Unique models present in user data")
+    available_source_types: List[str] = Field(default_factory=list, description="Unique source types present (SINGLE, BATCH)")
+    available_verdicts: List[str] = Field(default_factory=list, description="Unique verdicts present")
+
+
+class AnalyticsStatistics(BaseModel):
+    """Complete analytics response structure for Milestone 4 Scoring Dashboard."""
+    total_evaluations: int = Field(0, description="Total filtered evaluations count")
+    verdict_distribution: VerdictDistribution = Field(default_factory=VerdictDistribution)
+    average_scores: AverageDimensionScores = Field(default_factory=AverageDimensionScores)
+    hallucination_metrics: HallucinationMetrics = Field(default_factory=HallucinationMetrics)
+    quality_trends: List[QualityTrendPoint] = Field(default_factory=list)
+    available_filters: AvailableFilterMetadata = Field(default_factory=AvailableFilterMetadata)
+
+
 __all__ = [
     "HistoryItemCreate",
     "HistoryItemResponse",
@@ -123,4 +191,11 @@ __all__ = [
     "PaginationMetadata",
     "PaginatedResponse",
     "DashboardStatistics",
+    "AnalyticsFilterParams",
+    "VerdictDistribution",
+    "AverageDimensionScores",
+    "HallucinationMetrics",
+    "QualityTrendPoint",
+    "AvailableFilterMetadata",
+    "AnalyticsStatistics",
 ]

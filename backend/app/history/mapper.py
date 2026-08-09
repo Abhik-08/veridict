@@ -68,7 +68,18 @@ class HistoryMapper:
         reference_answer = evaluation_data.get("reference_answer") or evaluation_data.get("reference")
 
         retrieved_evidence = HistoryMapper._extract_evidence(evaluation_data)
-        eval_result = evaluation_data.get("evaluation_result") or evaluation_data.get("verdict_evaluation") or evaluation_data
+        if "evaluation_result" in evaluation_data and isinstance(evaluation_data["evaluation_result"], dict):
+            eval_result = evaluation_data["evaluation_result"]
+        elif any(k in evaluation_data for k in ("relevance_evaluation", "accuracy_evaluation", "completeness_evaluation", "hallucination_evaluation")):
+            eval_result = {
+                "relevance_evaluation": evaluation_data.get("relevance_evaluation"),
+                "accuracy_evaluation": evaluation_data.get("accuracy_evaluation"),
+                "hallucination_evaluation": evaluation_data.get("hallucination_evaluation"),
+                "completeness_evaluation": evaluation_data.get("completeness_evaluation"),
+                "verdict_evaluation": evaluation_data.get("verdict_evaluation"),
+            }
+        else:
+            eval_result = evaluation_data.get("verdict_evaluation") or evaluation_data
         overall_score, verdict = HistoryMapper._extract_scores_and_verdict(evaluation_data)
 
         return HistoryItemCreate(

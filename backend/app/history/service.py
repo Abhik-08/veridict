@@ -20,6 +20,8 @@ from app.history.schemas import (
     PaginationMetadata,
     PaginatedResponse,
     HistoryFilterParams,
+    AnalyticsFilterParams,
+    AnalyticsStatistics,
 )
 from app.history.constants import EvaluationSource, HistoryStatus, EvaluationVerdict
 from app.history.events import HistoryEvents
@@ -234,3 +236,9 @@ class HistoryService:
         """Calculates dashboard statistics for the user."""
         HistoryEvents.statistics_requested(user_id=user_id)
         return HistoryRepository.dashboard_statistics(db, user_id)
+
+    @staticmethod
+    def get_analytics(db: Session, user_id: UUID, params: AnalyticsFilterParams) -> AnalyticsStatistics:
+        """Calculates detailed analytics and score trends for the user scoring dashboard."""
+        HistoryEvents.statistics_requested(user_id=user_id)
+        return HistoryRepository.analytics_statistics(db, user_id, params)

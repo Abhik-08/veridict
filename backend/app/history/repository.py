@@ -3,13 +3,25 @@ Repository module for Evaluation History Foundation.
 Handles pure SQLAlchemy database interactions with strict user ownership scoping.
 """
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
 from app.history.models import Evaluation, BatchJob
-from app.history.schemas import HistoryItemCreate, BatchJobCreate, DashboardStatistics, HistoryFilterParams
+from app.history.schemas import (
+    HistoryItemCreate,
+    BatchJobCreate,
+    DashboardStatistics,
+    HistoryFilterParams,
+    AnalyticsFilterParams,
+    AnalyticsStatistics,
+    VerdictDistribution,
+    AverageDimensionScores,
+    HallucinationMetrics,
+    QualityTrendPoint,
+    AvailableFilterMetadata,
+)
 from app.history.constants import EvaluationVerdict
 
 
@@ -247,4 +259,212 @@ class HistoryRepository:
             average_batch_size=average_batch_size,
             recent_activity_count=recent_activity_count,
             most_recent_evaluation=most_recent_eval,
+        )
+
+    @staticmethod
+    @staticmethod
+    def _extract_available_filters(all_user_evals: List[Evaluation]) -> AvailableFilterMetadata:
+        """Extracts unique models, source types, and verdicts across user history."""
+        models_set = set()
+        for e in all_user_evals:
+            result_json = e.evaluation_result or {}
+            model_name = (
+                result_json.get("relevance_evaluation", {}).get("model_used")
+                or result_json.get("model_used")
+            )
+            if model_name:
+                models_set.add(model_name)
+
+        return AvailableFilterMetadata(
+            available_models=sorted(models_set),
+            available_source_types=sorted({e.source_type for e in all_user_evals if e.source_type}),
+            available_verdicts=sorted({e.verdict for e in all_user_evals if e.verdict}),
+        )
+
+    @staticmethod
+    def _calculate_verdict_distribution(filtered_evals: List[Evaluation], total_evaluations: int) -> VerdictDistribution:
+        """Calculates PASS, NEEDS_IMPROVEMENT, FAIL counts and percentages."""
+        if total_evaluations == 0:
+            return VerdictDistribution()
+
+        pass_count = sum(1 for e in filtered_evals if e.verdict == EvaluationVerdict.PASS.value)
+        needs_improvement_count = sum(1 for e in filtered_evals if e.verdict == EvaluationVerdict.NEEDS_IMPROVEMENT.value)
+        fail_count = sum(1 for e in filtered_evals if e.verdict == EvaluationVerdict.FAIL.value)
+
+        return VerdictDistribution(
+            pass_count=pass_count,
+            needs_improvement_count=needs_improvement_count,
+            fail_count=fail_count,
+            pass_percentage=round((pass_count / total_evaluations) * 100.0, 2),
+            needs_improvement_percentage=round((needs_improvement_count / total_evaluations) * 100.0, 2),
+            fail_percentage=round((fail_count / total_evaluations) * 100.0, 2),
+        )
+
+    @staticmethod
+    def _is_numeric(val: Any) -> bool:
+        """Returns True if val is a number (int or float) and not a boolean."""
+        return isinstance(val, (int, float)) and not isinstance(val, bool)
+
+    @staticmethod
+    def _extract_score(result_json: dict, key_name: str) -> Optional[float]:
+        """
+        Extracts numeric score for a dimension (relevance, accuracy, completeness, hallucination)
+        from various evaluation payload JSON structures across single and batch runs.
+        """
+        if not isinstance(result_json, dict):
+            return None
+
+        # 1. Top-level score check (e.g. result_json["relevance_score"] or result_json["relevance"])
+        for top_key in (f"{key_name}_score", key_name):
+            if HistoryRepository._is_numeric(val := result_json.get(top_key)):
+                return float(val)
+
+        # 2. Nested dictionary check (e.g. result_json["relevance_evaluation"] or result_json["relevance"])
+        for parent_key in (f"{key_name}_evaluation", key_name):
+            parent_dict = result_json.get(parent_key)
+            if isinstance(parent_dict, dict):
+                for sub_key in (f"{key_name}_score", "score", "value"):
+                    if HistoryRepository._is_numeric(val := parent_dict.get(sub_key)):
+                        return float(val)
+
+        return None
+
+    @staticmethod
+    def _calculate_dimension_averages(filtered_evals: List[Evaluation]) -> AverageDimensionScores:
+        """Calculates mean scores for relevance, accuracy, completeness, and overall score."""
+        overall_scores = [float(e.overall_score) for e in filtered_evals if e.overall_score is not None]
+
+        results = [e.evaluation_result or {} for e in filtered_evals]
+        rel_scores = [s for r in results if (s := HistoryRepository._extract_score(r, "relevance")) is not None]
+        acc_scores = [s for r in results if (s := HistoryRepository._extract_score(r, "accuracy")) is not None]
+        comp_scores = [s for r in results if (s := HistoryRepository._extract_score(r, "completeness")) is not None]
+
+        return AverageDimensionScores(
+            average_relevance=round(sum(rel_scores) / len(rel_scores), 2) if rel_scores else 0.0,
+            average_accuracy=round(sum(acc_scores) / len(acc_scores), 2) if acc_scores else 0.0,
+            average_completeness=round(sum(comp_scores) / len(comp_scores), 2) if comp_scores else 0.0,
+            average_overall_score=round(sum(overall_scores) / len(overall_scores), 2) if overall_scores else 0.0,
+        )
+
+    @staticmethod
+    def _calculate_hallucination_metrics(filtered_evals: List[Evaluation]) -> HallucinationMetrics:
+        """
+        Calculates hallucination rate, evaluable vs insufficient evidence counts.
+        Note: Items with INSUFFICIENT_EVIDENCE status, missing evidence, or 0.0 score are
+        excluded from evaluable hallucination counts and counted under insufficient_evidence_count.
+        """
+        insufficient_evidence_count = 0
+        hal_scores = []
+
+        for e in filtered_evals:
+            result_json = e.evaluation_result or {}
+            hal_eval = result_json.get("hallucination_evaluation") or {}
+            status_str = hal_eval.get("status") if isinstance(hal_eval, dict) else result_json.get("status")
+            evidence_source = result_json.get("evidence_source")
+
+            h_score = HistoryRepository._extract_score(result_json, "hallucination")
+
+            if (
+                status_str == "INSUFFICIENT_EVIDENCE"
+                or evidence_source == "NO_EVIDENCE"
+                or h_score is None
+                or h_score < 0.01
+            ):
+                insufficient_evidence_count += 1
+            elif 1.0 <= h_score <= 5.0:
+                hal_scores.append(h_score)
+
+        evaluable_count = len(hal_scores)
+        hallucinated_count = sum(1 for s in hal_scores if s < 4.0)
+        grounded_count = evaluable_count - hallucinated_count
+
+        return HallucinationMetrics(
+            evaluable_count=evaluable_count,
+            insufficient_evidence_count=insufficient_evidence_count,
+            hallucinated_count=hallucinated_count,
+            grounded_count=grounded_count,
+            hallucination_rate_percentage=round((hallucinated_count / evaluable_count) * 100.0, 2) if evaluable_count > 0 else 0.0,
+            average_hallucination_score=round(sum(hal_scores) / len(hal_scores), 2) if hal_scores else 0.0,
+        )
+
+    @staticmethod
+    def _calculate_quality_trends(filtered_evals: List[Evaluation]) -> List[QualityTrendPoint]:
+        """Groups evaluations by date YYYY-MM-DD for time-series quality trends."""
+        trends_map: dict[str, list[Evaluation]] = {}
+        for e in filtered_evals:
+            date_key = e.created_at.strftime("%Y-%m-%d") if e.created_at else "Unknown"
+            if date_key not in trends_map:
+                trends_map[date_key] = []
+            trends_map[date_key].append(e)
+
+        quality_trends = []
+        for date_key in sorted(trends_map.keys()):
+            items = trends_map[date_key]
+            d_scores = [item.overall_score for item in items if item.overall_score is not None]
+            d_avg = round(sum(d_scores) / len(d_scores), 2) if d_scores else 0.0
+            d_pass = sum(1 for item in items if item.verdict == EvaluationVerdict.PASS.value)
+            d_needs = sum(1 for item in items if item.verdict == EvaluationVerdict.NEEDS_IMPROVEMENT.value)
+            d_fail = sum(1 for item in items if item.verdict == EvaluationVerdict.FAIL.value)
+
+            quality_trends.append(
+                QualityTrendPoint(
+                    date=date_key,
+                    count=len(items),
+                    average_score=d_avg,
+                    pass_count=d_pass,
+                    needs_improvement_count=d_needs,
+                    fail_count=d_fail,
+                )
+            )
+        return quality_trends
+
+    @staticmethod
+    def analytics_statistics(db: Session, user_id: UUID, params: AnalyticsFilterParams) -> AnalyticsStatistics:
+        """
+        Calculates comprehensive, filtered evaluation analytics for the user's dashboard.
+        Strictly scoped to user_id for multi-tenant security.
+        """
+        all_user_evals = db.query(Evaluation).filter(Evaluation.user_id == user_id).all()
+        available_filters = HistoryRepository._extract_available_filters(all_user_evals)
+
+        query = db.query(Evaluation).filter(Evaluation.user_id == user_id)
+        if params.date_from:
+            query = query.filter(Evaluation.created_at >= params.date_from)
+        if params.date_to:
+            query = query.filter(Evaluation.created_at <= params.date_to)
+        if params.source_type and params.source_type.upper() != "ALL":
+            query = query.filter(Evaluation.source_type == params.source_type.upper())
+        if params.verdict and params.verdict.upper() != "ALL":
+            query = query.filter(Evaluation.verdict == params.verdict.upper())
+
+        filtered_evals = query.order_by(Evaluation.created_at.asc()).all()
+
+        if params.model and params.model.strip() and params.model.upper() != "ALL":
+            target_model = params.model.strip().lower()
+            filtered_evals = [
+                e for e in filtered_evals
+                if (
+                    (e.evaluation_result or {}).get("relevance_evaluation", {}).get("model_used", "").lower() == target_model
+                    or (e.evaluation_result or {}).get("model_used", "").lower() == target_model
+                )
+            ]
+
+        total_evaluations = len(filtered_evals)
+        if total_evaluations == 0:
+            return AnalyticsStatistics(
+                total_evaluations=0,
+                verdict_distribution=VerdictDistribution(),
+                average_scores=AverageDimensionScores(),
+                hallucination_metrics=HallucinationMetrics(),
+                quality_trends=[],
+                available_filters=available_filters,
+            )
+
+        return AnalyticsStatistics(
+            total_evaluations=total_evaluations,
+            verdict_distribution=HistoryRepository._calculate_verdict_distribution(filtered_evals, total_evaluations),
+            average_scores=HistoryRepository._calculate_dimension_averages(filtered_evals),
+            hallucination_metrics=HistoryRepository._calculate_hallucination_metrics(filtered_evals),
+            quality_trends=HistoryRepository._calculate_quality_trends(filtered_evals),
+            available_filters=available_filters,
         )

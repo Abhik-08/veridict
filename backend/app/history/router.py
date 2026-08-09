@@ -20,6 +20,8 @@ from app.history.schemas import (
     DashboardStatistics,
     PaginatedResponse,
     HistoryFilterParams,
+    AnalyticsFilterParams,
+    AnalyticsStatistics,
 )
 from app.common.models.responses import SuccessResponse
 from app.history.service import HistoryService
@@ -77,6 +79,22 @@ def get_dashboard_statistics_legacy(
 ):
     """Legacy route alias for dashboard statistics."""
     return HistoryService.get_dashboard_statistics(db, current_user.id)
+
+
+@router.get("/analytics", response_model=AnalyticsStatistics)
+def get_history_analytics(
+    db: DbSession,
+    current_user: AuthUser,
+    params: Annotated[AnalyticsFilterParams, Query()],
+):
+    """
+    Calculates detailed evaluation scoring analytics, dimension averages, hallucination frequency,
+    and quality trends over time for the authenticated user's dashboard.
+    """
+    try:
+        return HistoryService.get_analytics(db=db, user_id=current_user.id, params=params)
+    except (HistoryDomainError, BaseAppException) as err:
+        raise HTTPException(status_code=err.status_code, detail=err.message)
 
 
 # ---------------------------------------------------------

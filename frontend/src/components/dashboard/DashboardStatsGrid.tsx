@@ -4,19 +4,21 @@ import {
   AlertTriangle,
   XCircle,
   Award,
+  Target,
+  ShieldCheck,
   Layers,
-  Activity,
 } from 'lucide-react'
-import type { DashboardStatistics } from '@/services/dashboardService'
+import type { DashboardStatistics, AnalyticsStatistics } from '@/services/dashboardService'
 import { DashboardStatCard } from './DashboardStatCard'
 import { SkeletonCard } from '../shared/SkeletonLoader'
 
 interface DashboardStatsGridProps {
   stats: DashboardStatistics | null
+  analytics?: AnalyticsStatistics | null
   loading: boolean
 }
 
-export function DashboardStatsGrid({ stats, loading }: Readonly<DashboardStatsGridProps>) {
+export function DashboardStatsGrid({ stats, analytics, loading }: Readonly<DashboardStatsGridProps>) {
   if (loading || !stats) {
     return (
       <div className="space-y-4">
@@ -25,20 +27,23 @@ export function DashboardStatsGrid({ stats, loading }: Readonly<DashboardStatsGr
             <SkeletonCard key={idx} />
           ))}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:justify-center gap-4">
-          {Array.from({ length: 3 }).map((_, idx) => (
-            <div key={idx} className="w-full lg:w-[calc(25%-12px)]">
-              <SkeletonCard />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
           ))}
         </div>
       </div>
     )
   }
 
+  const scores = analytics?.average_scores
+  const relScore = scores?.average_relevance ?? 0
+  const accScore = scores?.average_accuracy ?? 0
+  const compScore = scores?.average_completeness ?? 0
+
   return (
     <div className="space-y-4">
-      {/* Top Row: 4 Primary Metrics */}
+      {/* Top Row: 4 Overall Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Evaluations */}
         <DashboardStatCard
@@ -77,40 +82,43 @@ export function DashboardStatsGrid({ stats, loading }: Readonly<DashboardStatsGr
         />
       </div>
 
-      {/* Bottom Row: 3 Secondary Metrics Centered */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:justify-center gap-4">
-        <div className="w-full lg:w-[calc(25%-12px)]">
-          {/* Needs Improvement */}
-          <DashboardStatCard
-            title="Needs Improvement"
-            value={`${(stats.needs_improvement_percentage ?? 0).toFixed(1)}%`}
-            subtitle={`${stats.needs_improvement_count} evaluation(s)`}
-            icon={<AlertTriangle className="w-5 h-5" />}
-            accentColor="amber"
-          />
-        </div>
+      {/* Bottom Row: 4 Dimension & Status Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Needs Improvement */}
+        <DashboardStatCard
+          title="Needs Improvement"
+          value={`${(stats.needs_improvement_percentage ?? 0).toFixed(1)}%`}
+          subtitle={`${stats.needs_improvement_count} evaluation(s)`}
+          icon={<AlertTriangle className="w-5 h-5" />}
+          accentColor="amber"
+        />
 
-        <div className="w-full lg:w-[calc(25%-12px)]">
-          {/* Batch Evaluation Jobs */}
-          <DashboardStatCard
-            title="Total Batch Jobs"
-            value={stats.total_batch_jobs}
-            subtitle={`Avg batch size: ${stats.average_batch_size.toFixed(0)} items`}
-            icon={<Layers className="w-5 h-5" />}
-            accentColor="blue"
-          />
-        </div>
+        {/* Average Relevance */}
+        <DashboardStatCard
+          title="Average Relevance"
+          value={relScore > 0 ? `${relScore.toFixed(2)} / 5.0` : 'Unavailable'}
+          subtitle={relScore > 0 ? 'Target criteria scale 1–5' : 'Summary-only records'}
+          icon={<Target className="w-5 h-5" />}
+          accentColor="blue"
+        />
 
-        <div className="w-full lg:w-[calc(25%-12px)]">
-          {/* 24h Activity */}
-          <DashboardStatCard
-            title="24h Activity"
-            value={stats.recent_activity_count}
-            subtitle="Evaluations in last 24 hours"
-            icon={<Activity className="w-5 h-5" />}
-            accentColor="emerald"
-          />
-        </div>
+        {/* Average Accuracy */}
+        <DashboardStatCard
+          title="Average Accuracy"
+          value={accScore > 0 ? `${accScore.toFixed(2)} / 5.0` : 'Unavailable'}
+          subtitle={accScore > 0 ? 'Factual verification scale 1–5' : 'Summary-only records'}
+          icon={<ShieldCheck className="w-5 h-5" />}
+          accentColor="emerald"
+        />
+
+        {/* Average Completeness */}
+        <DashboardStatCard
+          title="Average Completeness"
+          value={compScore > 0 ? `${compScore.toFixed(2)} / 5.0` : 'Unavailable'}
+          subtitle={compScore > 0 ? 'Aspect coverage scale 1–5' : 'Summary-only records'}
+          icon={<Layers className="w-5 h-5" />}
+          accentColor="purple"
+        />
       </div>
     </div>
   )

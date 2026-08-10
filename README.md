@@ -4,33 +4,54 @@ An enterprise-grade, full-stack platform for evaluating the quality, accuracy, a
 
 Veridict evaluates AI outputs across four core dimensions — **Relevance**, **Accuracy**, **Completeness**, and **Hallucination** — providing weighted overall scoring (1.00–5.00), confidence metrics, explainable reasoning, executive PDF exports, searchable evaluation history, and interactive analytics.
 
-<img width="575" height="775" alt="Veridict Dashboard" src="https://github.com/user-attachments/assets/44edbbd3-207a-4989-af83-080832a02de7" />
+---
+
+## 📸 Interface & Evaluation Showcase
+
+### 1. Batch Evaluation Engine
+Process up to 30 QA pairs in bulk using CSV datasets or Digital QA PDFs with context evidence binding and non-blocking background workers.
+
+![Batch Evaluation Engine](docs/images/batch_evaluation_engine.png)
 
 ---
 
-## Why Veridict?
+### 2. Multi-Agent Evaluation Reports
+Specialized judge agents analyze query alignment, factual correctness, requirement coverage, and contextual grounding.
 
-Large Language Models (LLMs) frequently generate answers that appear fluent and convincing yet suffer from factual errors, omissions, or ungrounded hallucinations. **Veridict** provides an objective, automated framework to evaluate AI outputs against ground-truth benchmarks and uploaded reference documents.
+#### Relevance & Accuracy Agents
+![Relevance and Accuracy Agents](docs/images/relevance_accuracy_agents.png)
 
-Designed for developers, researchers, and enterprise AI teams, Veridict delivers transparent quality assessment through interactive single-prompt evaluations, bulk dataset evaluation pipelines, searchable history auditing, and KPI analytics.
+#### Hallucination & Completeness Agents
+![Hallucination and Completeness Agents](docs/images/hallucination_completeness_agents.png)
 
 ---
 
-## Key Features
+### 3. Evaluation History & Audit Log
+Searchable evaluation audit trail equipped with debounced search, status filters, date range selection, sticky headers, and bulk deletion.
 
-- 🤖 **Multi-Agent Judging Engine**: Independent evaluation agents score Relevance, Accuracy, Completeness, and Hallucination.
-- ⚖️ **Weighted Verdict Agent**: Computes aggregated overall scores (1.00–5.00) and assigns an actionable verdict (**PASS**, **NEEDS IMPROVEMENT**, or **FAIL**).
-- ⚡ **Single & Batch Evaluation Modes**: Evaluate individual QA pairs or upload dataset CSVs / Digital QA PDFs for bulk assessment.
-- 📚 **RAG-Powered Grounding**: Semantic retrieval against Pinecone vector search index and user-uploaded reference PDFs.
+![Evaluation History](docs/images/evaluation_history_audit.png)
+
+---
+
+### 4. Executive PDF Reports
+Automated generation of publication-ready evaluation reports containing itemized score breakdowns, hallucination analysis, and improvement recommendations.
+
+![Executive PDF Report](docs/images/batch_evaluation_pdf_report.png)
+
+---
+
+## 🚀 Key Features & Highlights
+
+- 🤖 **Multi-Agent Judging Engine**: Independent evaluation agents score Relevance, Accuracy, Completeness, and Hallucination, followed by a Weighted Verdict Agent that computes overall scores (1.00–5.00) and assigns actionable verdicts (`PASS`, `NEEDS IMPROVEMENT`, `FAIL`).
+- ⚡ **CSV & Digital QA PDF Batch Processing**: Automatic parsing and normalization of dataset CSV files and Digital QA PDFs with an automated rate controller regulating inter-batch delays to respect LLM API quotas.
+- 📚 **RAG-Powered Context Grounding**: Semantic retrieval against Pinecone vector search index and user-uploaded reference PDFs to verify claims against authoritative evidence.
 - 🛡️ **Resilient LLM Infrastructure**: Automated multi-model fallback chain (`gemini-2.5-flash` → `gemini-3.1-flash-lite` → `gemini-3.5-flash`) with rate-limit retry handling.
-- 🗄️ **Automatic PostgreSQL Persistence**: Automatically stores evaluation records, confidence metrics, RAG evidence, and multi-agent JSON payloads in Supabase PostgreSQL database.
-- 📊 **Evaluation History & Dashboard**: Full history module with debounced search, multi-field filtering, sticky headers, stacked dates, active filter chips, KPI statistics, and manual multi-select bulk deletion.
-- 📄 **Executive PDF Reports**: Stream structured multi-page PDF evaluation assessment reports for archiving and presentation.
-- 🎨 **Modern Streamlined UI/UX**: Popup-free evaluation submission flow with inline step-by-step progress cards and auto-dismissing success notifications.
+- 🗄️ **Automatic PostgreSQL History Persistence**: Persists batch job records, dataset counters, confidence metrics, RAG evidence, and multi-agent JSON payloads to Supabase PostgreSQL database.
+- 📄 **Executive PDF Summary Reports**: Stream structured multi-page PDF evaluation assessment reports featuring aggregate pass rates, dimension score averages, hallucination alerts, and actionable recommendations.
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technologies |
 | :--- | :--- |
@@ -41,7 +62,7 @@ Designed for developers, researchers, and enterprise AI teams, Veridict delivers
 
 ---
 
-## Architecture Overview
+## 📐 Architecture Overview
 
 ```
 User (Browser)
@@ -66,7 +87,7 @@ Google Gemini LLM Chain (Primary + Fallback Models)
 
 ---
 
-## Quickstart
+## ⚡ Quickstart Guide
 
 ### Prerequisites
 - **Python 3.12+**
@@ -92,7 +113,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
-Add your `GOOGLE_API_KEY`, `PINECONE_API_KEY`, and `DATABASE_URL` to `backend/.env`.
+Configure your `GOOGLE_API_KEY`, `PINECONE_API_KEY`, and `DATABASE_URL` in `backend/.env`.
 
 Apply database migrations:
 ```bash
@@ -111,20 +132,20 @@ cd ../frontend
 npm install
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Access the application at [http://localhost:5173](http://localhost:5173).
 
 ### 4. Running Tests
 ```bash
-# Backend test suite (151 tests passing cleanly)
+# Run backend test suite
 cd ../backend
 python -m pytest tests/ -v
 ```
 
 ---
 
-## Documentation Index
+## 📚 Documentation Index
 
-Explore the `docs/` directory for detailed technical guides:
+Explore the `docs/` directory for in-depth technical guides:
 
 - 📐 **[Architecture Overview](docs/Architecture.md)** — Multi-agent pipeline, model fallback chain, shared common infrastructure, and repository pattern.
 - 🔌 **[REST API Reference](docs/API.md)** — Complete REST endpoints for single evaluation, batch processing, authentication, and history auditing.
@@ -134,7 +155,7 @@ Explore the `docs/` directory for detailed technical guides:
 
 ---
 
-## Author
+## 👨‍💻 Author
 
 **Abhik Mukherjee**  
 B.Tech Computer Science & Engineering | Dr. B. C. Roy Engineering College  
@@ -142,6 +163,6 @@ AI Intern — Infosys Springboard Virtual Internship (Batch 1)
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the [MIT License](LICENSE).
